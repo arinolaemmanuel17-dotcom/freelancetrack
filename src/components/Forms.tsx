@@ -569,26 +569,28 @@ export function ChipPicker({
   selected,
   onChange,
   noun,
+  single,
 }: {
   id: string
   list: 'platforms' | 'activities'
   selected: string[]
   onChange: (v: string[]) => void
   noun: string
+  single?: boolean // pick just one
 }) {
   const { data, updateSettings } = useStore()
   const items = data.settings[list]
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
   const all = [...items, ...selected.filter((s) => !items.includes(s))]
-  const toggle = (v: string) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v])
+  const toggle = (v: string) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : single ? [v] : [...selected, v])
   const add = () => {
     const v = text.trim()
     if (!v) return
     const existing = items.find((i) => i.toLowerCase() === v.toLowerCase())
     if (!existing) updateSettings({ [list]: [...items, v] })
     const value = existing ?? v
-    if (!selected.includes(value)) onChange([...selected, value])
+    if (!selected.includes(value)) onChange(single ? [value] : [...selected, value])
     setText('')
     setAdding(false)
   }

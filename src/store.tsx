@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { AppData, Client, DayEntry, Expense, MonthlyGoal, Order, Payment, Settings } from './types'
+import type { AppData, CheckinEntry, Client, DayEntry, Expense, MonthlyGoal, Order, Payment, Settings } from './types'
 import { EMPTY_DATA, exampleData, loadData, newId, saveData } from './storage'
 import * as db from './db'
 import { altRate, formatMoney, goalWindow, orderBalance, rateFor, today } from './utils'
@@ -8,6 +8,12 @@ export interface Account {
   userId: string
   email: string
   signOut: () => void
+}
+
+export interface RunningTimer {
+  startedAt: string // ISO time
+  activity: string
+  platform: string
 }
 
 export interface MoneyView {
@@ -43,6 +49,12 @@ interface StoreValue {
   deleteExpense: (id: string) => void
   importClients: (rows: Pick<Client, 'name' | 'contact' | 'platform' | 'notes'>[]) => number
   saveDay: (d: DayEntry) => void
+  saveEntry: (e: Partial<CheckinEntry> & Pick<CheckinEntry, 'hours'>) => string | null // null if not for today
+  deleteEntry: (id: string) => void
+  timer: RunningTimer | null
+  startTimer: (activity: string, platform: string) => void
+  stopTimer: () => (RunningTimer & { hours: number }) | null
+  cancelTimer: () => void
   saveGoal: (g: MonthlyGoal) => boolean // false if the goal window is closed for that month
   updateSettings: (s: Partial<Settings>) => void
   resetAll: () => void
@@ -74,6 +86,24 @@ export function StoreProvider({ account, children }: { account?: Account | null;
       localStorage.setItem('ft-show-alt', on ? '1' : '0')
     } catch {
       // Remembering the choice is optional.
+    }
+  }, [])
+  // The optional work timer lives on this device, so it keeps running if you close the tab.
+  const [timer, setTimerState] = useState<RunningTimer | null>(() => {
+    try {
+      const raw = localStorage.getItem('ft-timer')
+      return raw ? (JSON.parse(raw) as RunningTimer) : null
+    } catch {
+      return null
+    }
+  })
+  const setTimer = useCallback((t: RunningTimer | null) => {
+    setTimerState(t)
+    try {
+      if (t) localStorage.setItem('ft-timer', JSON.stringify(t))
+      else localStorage.removeItem('ft-timer')
+    } catch {
+      // Keeping the timer across reloads is optional.
     }
   }, [])
   const dataRef = useRef(data)
@@ -352,6 +382,49 @@ export function StoreProvider({ account, children }: { account?: Account | null;
         persist('The check-in', () => db.upsertDay(userId, day))
       },
 
+      saveEntry(e) {
+        const t = today()
+        const existing = e.id ? dataRef.current.entries.find((x) => x.id === e.id) : undefined
+        if ((existing && existing.date !== t) || (e.date && e.date !== t)) return null // only today's entries
+        const row: CheckinEntry = {
+          id: existing?.id ?? newId(),
+          date: t,
+          activity: e.activity ?? existing?.activity ?? '',
+          platform: e.platform ?? existing?.platform ?? '',
+          hours: Math.min(24, Math.max(0.05, Math.round(e.hours * 100) / 100)),
+          outreach: Math.max(0, Math.round(e.outreach ?? existing?.outreach ?? 0)),
+          note: e.note ?? existing?.note ?? '',
+          startedAt: e.startedAt ?? existing?.startedAt ?? null,
+          createdAt: existing?.createdAt ?? now(),
+        }
+        setData((d) => ({ ...d, entries: [...d.entries.filter((x) => x.id !== row.id), row] }))
+        persist('The check-in entry', () => db.upsertEntry(row))
+        return row.id
+      },
+
+      deleteEntry(id) {
+        const e = dataRef.current.entries.find((x) => x.id === id)
+        if (!e || e.date !== today()) return // past entries are kept as a record
+        setData((d) => ({ ...d, entries: d.entries.filter((x) => x.id !== id) }))
+        persist('Removing the entry', () => db.removeEntry(id))
+      },
+
+      timer,
+      startTimer(activity, platform) {
+        setTimer({ startedAt: new Date().toISOString(), activity, platform })
+      },
+      stopTimer() {
+        if (!timer) return null
+        const ms = Date.now() - new Date(timer.startedAt).getTime()
+        // Round to the nearest 5 minutes, at least 5 minutes, at most 24 hours.
+        const hours = Math.min(24, Math.max(5, Math.round(ms / 300000) * 5) / 60)
+        setTimer(null)
+        return { ...timer, hours: Math.round(hours * 100) / 100 }
+      },
+      cancelTimer() {
+        setTimer(null)
+      },
+
       saveGoal(g) {
         if (goalWindow().month !== g.month || !(g.amount > 0)) return false
         setData((d) => ({ ...d, goals: [...d.goals.filter((x) => x.month !== g.month), g].sort((a, b) => a.month.localeCompare(b.month)) }))
@@ -375,7 +448,7 @@ export function StoreProvider({ account, children }: { account?: Account | null;
         if (!cloud) setData(exampleData())
       },
     }
-  }, [account, cloud, data, error, reload, status, showAlt, setShowAlt])
+  }, [account, cloud, data, error, reload, status, timer, setTimer, showAlt, setShowAlt])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

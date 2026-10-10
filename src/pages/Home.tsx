@@ -7,6 +7,7 @@ import type { Go } from '../App'
 import { OPEN_STATUSES } from '../types'
 import {
   checkinStreak,
+  dayTotals,
   goalFor,
   goalWindow,
   clientName,
@@ -52,7 +53,7 @@ export function Home({ go }: { go: Go }) {
   const targetGoal = gw.month ? goalFor(data, gw.month) : null
   const goalPct = goal > 0 ? Math.min(100, Math.round((inThis / goal) * 100)) : 0
   const streak = checkinStreak(data, now)
-  const checkedToday = data.days.some((d) => d.date === now)
+  const checkedToday = (dayTotals(data, now)?.hours ?? 0) > 0
 
   const dueSoon = data.orders
     .filter((o) => OPEN_STATUSES.includes(o.status) && o.dueDate && daysBetween(now, o.dueDate) <= 7)
@@ -132,7 +133,7 @@ export function Home({ go }: { go: Go }) {
           </h1>
         </div>
         {!checkedToday && !isEmpty && (
-          <button className="primary" onClick={() => go('daily', 'new')}>
+          <button className="primary" onClick={() => go('daily', 'entry')}>
             <Icon name="checkin" size={18} /> Check in
           </button>
         )}
@@ -268,7 +269,7 @@ export function Home({ go }: { go: Go }) {
                 {checkedToday ? (
                   <button className="link small" onClick={() => go('daily')}>You checked in today. See your week</button>
                 ) : (
-                  <button className="ghost bordered" onClick={() => go('daily', 'new')}>
+                  <button className="ghost bordered" onClick={() => go('daily', 'entry')}>
                     <Icon name="checkin" size={16} /> Check in for today
                   </button>
                 )}

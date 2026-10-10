@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useStore } from '../store'
 import { MonthColumns } from '../components/Chart'
-import { clientName, daysBetween, downloadCsv, lastMonths, monthLabel, monthOf, orderToBase, receivedIn, spentIn, toBase, today, totalOutstanding } from '../utils'
+import { checkinDates, clientName, dayTotals, daysBetween, workBy, downloadCsv, lastMonths, monthLabel, monthOf, orderToBase, receivedIn, spentIn, toBase, today, totalOutstanding } from '../utils'
 import { OPEN_STATUSES } from '../types'
 
 type Range = 3 | 6 | 12 | 0 // months; 0 = all time
@@ -80,8 +80,8 @@ export function Reports() {
   const topShare = income > 0 && clientRows[0] ? clientRows[0].value / income : 0
 
   // ---------- work ----------
-  const days = data.days.filter((d) => inRange(d.date))
-  const hours = days.reduce((s, d) => s + d.hours, 0)
+  const days = checkinDates(data).filter(inRange).map((d) => dayTotals(data, d)).filter((x) => x !== null)
+  const hours = Math.round(days.reduce((s, d) => s + d.hours, 0) * 10) / 10
   const outreach = days.reduce((s, d) => s + d.outreach, 0)
 
   // ---------- breakdowns ----------
@@ -107,31 +107,21 @@ export function Reports() {
 
   // ---------- check-in insights ----------
   // A day's hours are shared equally between the platforms (or activities) picked that day.
-  const platformRows = (() => {
-    const names = new Set<string>([...data.days.flatMap((d) => d.platforms), ...byPlatform.map((r) => r.key).filter((k) => k !== 'Not set')])
-    return [...names]
-      .map((p) => {
-        const worked = days.filter((d) => d.platforms.includes(p))
-        const hrs = worked.reduce((s, d) => s + d.hours / d.platforms.length, 0)
-        const contacts = worked.reduce((s, d) => s + d.outreach / d.platforms.length, 0)
-        const newC = data.clients.filter((c) => c.platform === p && inRange(c.createdAt.slice(0, 10))).length
-        const moneyIn = byPlatform.find((r) => r.key === p)?.value ?? 0
-        return { p, days: worked.length, hrs, contacts, newC, moneyIn }
-      })
-      .filter((r) => r.days || r.newC || r.moneyIn)
-      .sort((a, b) => b.moneyIn - a.moneyIn || b.hrs - a.hrs)
-  })()
-  const activityRows = (() => {
-    const names = new Set(days.flatMap((d) => d.activities))
-    const tagged = days.filter((d) => d.activities.length).reduce((s, d) => s + d.hours, 0)
-    return [...names]
-      .map((a) => {
-        const did = days.filter((d) => d.activities.includes(a))
-        const hrs = did.reduce((s, d) => s + d.hours / d.activities.length, 0)
-        return { a, days: did.length, hrs, share: tagged > 0 ? hrs / tagged : 0 }
-      })
-      .sort((x, y) => y.hrs - x.hrs)
-  })()
+  const byPlatformWork = workBy(data, 'platform', inRange)
+  const byActivityWork = workBy(data, 'activity', inRange)
+  const platformRows = [...new Set([...byPlatformWork.keys(), ...byPlatform.map((r) => r.key).filter((k) => k !== 'Not set')])]
+    .map((p) => {
+      const w = byPlatformWork.get(p)
+      const newC = data.clients.filter((c) => c.platform === p && inRange(c.createdAt.slice(0, 10))).length
+      const moneyIn = byPlatform.find((r) => r.key === p)?.value ?? 0
+      return { p, days: w?.days.size ?? 0, hrs: w?.hours ?? 0, contacts: w?.outreach ?? 0, newC, moneyIn }
+    })
+    .filter((r) => r.days || r.newC || r.moneyIn)
+    .sort((a, b) => b.moneyIn - a.moneyIn || b.hrs - a.hrs)
+  const activityTotal = [...byActivityWork.values()].reduce((s, v) => s + v.hours, 0)
+  const activityRows = [...byActivityWork.entries()]
+    .map(([a, v]) => ({ a, days: v.days.size, hrs: v.hours, share: activityTotal > 0 ? v.hours / activityTotal : 0 }))
+    .sort((x, y) => y.hrs - x.hrs)
   const fmtH = (h: number) => `${Math.round(h * 10) / 10} h`
 
   // ---------- goal history ----------

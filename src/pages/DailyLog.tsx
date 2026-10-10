@@ -1,57 +1,174 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { Icon } from '../components/Icon'
-import { Modal } from '../components/ui'
+import { ConfirmButton, Modal } from '../components/ui'
 import { ChipPicker } from '../components/Forms'
-import type { DayEntry } from '../types'
-import { addDays, checkinStreak, daysBetween, today } from '../utils'
+import type { CheckinEntry } from '../types'
+import { addDays, checkinDates, checkinStreak, dayTotals, daysBetween, today } from '../utils'
 
-const HOUR_PICKS = [1, 2, 4, 6, 8]
+const HOUR_PICKS = [0.5, 1, 2, 3, 4]
 
 function niceDate(d: string, withYear = false): string {
   const [y, m, day] = d.split('-').map(Number)
   return new Date(y, m - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', ...(withYear ? { year: 'numeric' } : {}) })
 }
-
 function dayLabel(d: string): string {
   const t = today()
   if (d === t) return 'Today'
   if (d === addDays(t, -1)) return 'Yesterday'
   return niceDate(d)
 }
-
 function ago(d: string): string {
   const n = daysBetween(d, today())
   if (n <= 1) return niceDate(d, true)
   return n < 7 ? `${n} days ago` : n < 14 ? 'Last week' : niceDate(d, true)
 }
+const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+// 1.33 -> "1h 20m", 0.5 -> "30m", 5 -> "5h"
+const fmtH = (h: number) => {
+  const mins = Math.round(h * 60)
+  const hh = Math.floor(mins / 60)
+  const mm = mins % 60
+  return hh && mm ? `${hh}h ${mm}m` : hh ? `${hh}h` : `${mm}m`
+}
+export function elapsed(fromIso: string, nowMs = Date.now()): string {
+  const s = Math.max(0, Math.floor((nowMs - new Date(fromIso).getTime()) / 1000))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+}
 
-// Results of your check-ins. New entries are for today only; past days are kept as a record.
-export function DailyLog({ openNew }: { openNew?: boolean }) {
-  const { data } = useStore()
+// Ticks once a second while a timer is running.
+export function useNow(active: boolean) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [active])
+  return now
+}
+
+type Draft = { entry?: CheckinEntry; hours?: number; activity?: string; platform?: string; startedAt?: string | null }
+
+// Check-ins: today's entries (add as many as you like, or use the timer), then your history.
+export function DailyLog({ open }: { open?: 'entry' | 'timer' }) {
+  const { data, timer, stopTimer, cancelTimer, deleteEntry, saveDay } = useStore()
   const t = today()
-  const todays = data.days.find((d) => d.date === t)
-  const [open, setOpen] = useState(!!openNew)
+  const [draft, setDraft] = useState<Draft | null>(open === 'entry' ? {} : null)
+  const [startOpen, setStartOpen] = useState(open === 'timer' && !timer)
+  const nowMs = useNow(!!timer)
+
+  const todayTotals = dayTotals(data, t)
+  const todayDay = data.days.find((d) => d.date === t)
+  const [blocker, setBlocker] = useState(todayDay?.blockers ?? '')
+  const [blockerSaved, setBlockerSaved] = useState(false)
 
   const streak = checkinStreak(data, t)
   const week = Array.from({ length: 7 }, (_, i) => addDays(t, i - 6))
-  const byDate = new Map(data.days.map((d) => [d.date, d]))
-  const weekHours = week.reduce((s, d) => s + (byDate.get(d)?.hours ?? 0), 0)
-  const weekOutreach = week.reduce((s, d) => s + (byDate.get(d)?.outreach ?? 0), 0)
-  const maxHours = Math.max(8, ...week.map((d) => byDate.get(d)?.hours ?? 0))
-  const history = [...data.days].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 60)
+  const weekTotals = week.map((d) => dayTotals(data, d))
+  const weekHours = Math.round(weekTotals.reduce((s, d) => s + (d?.hours ?? 0), 0) * 10) / 10
+  const weekOutreach = weekTotals.reduce((s, d) => s + (d?.outreach ?? 0), 0)
+  const maxHours = Math.max(8, ...weekTotals.map((d) => d?.hours ?? 0))
+  const history = checkinDates(data).filter((d) => d !== t).slice(0, 60).map((d) => dayTotals(data, d)).filter((x) => x !== null)
+  const allHours = checkinDates(data).reduce((s, d) => s + (dayTotals(data, d)?.hours ?? 0), 0)
 
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <h1>Check-ins</h1>
-          <p className="muted small">A quick daily record of your hours and outreach.</p>
+          <p className="muted small">Log each block of work today, or let the timer do it.</p>
         </div>
-        <button className="primary checkin-btn" onClick={() => setOpen(true)}>
-          <Icon name="checkin" size={18} /> {todays ? "Edit today's check-in" : 'Check in'}
-        </button>
+        <div className="head-actions">
+          {!timer && (
+            <button className="ghost bordered" onClick={() => setStartOpen(true)}>
+              <Icon name="clock" size={18} /> Start timer
+            </button>
+          )}
+          <button className="primary" onClick={() => setDraft({})}>
+            <Icon name="plus" size={18} /> Add entry
+          </button>
+        </div>
       </div>
+
+      {timer && (
+        <section className="card timer-card" aria-live="polite">
+          <div className="timer-main">
+            <span className="timer-dot" aria-hidden="true" />
+            <div className="grow">
+              <p className="muted small">Timer running since {clock(timer.startedAt)}</p>
+              <strong className="timer-time num">{elapsed(timer.startedAt, nowMs)}</strong>
+              <p className="small">{[timer.activity, timer.platform].filter(Boolean).join(' · ') || 'No activity picked yet'}</p>
+            </div>
+          </div>
+          <div className="actions">
+            <ConfirmButton label="Discard" question="Stop without saving?" onConfirm={cancelTimer} />
+            <span className="grow" />
+            <button
+              className="primary"
+              onClick={() => {
+                const r = stopTimer()
+                if (r) setDraft({ hours: r.hours, activity: r.activity, platform: r.platform, startedAt: r.startedAt })
+              }}
+            >
+              <Icon name="check" size={18} /> Stop and save
+            </button>
+          </div>
+        </section>
+      )}
+
+      <section className="card">
+        <div className="card-head">
+          <h2>Today</h2>
+          <span className="muted small">{niceDate(t, true)}</span>
+        </div>
+        {todayTotals && todayTotals.entries.length > 0 ? (
+          <>
+            <ul className="rows timeline">
+              {todayTotals.entries.map((e) => (
+                <li key={e.id}>
+                  <span className="tl-time num muted small">{clock(e.startedAt ?? e.createdAt)}</span>
+                  <span className="grow">
+                    <strong>{e.activity || 'Work'}</strong>
+                    <span className="muted small block">
+                      {[e.platform, e.outreach ? `${e.outreach} contacted` : '', e.note, e.startedAt ? 'from timer' : ''].filter(Boolean).join(' · ') || '—'}
+                    </span>
+                  </span>
+                  <span className="num strong">{fmtH(e.hours)}</span>
+                  <span className="tl-actions">
+                    <button className="ghost icon-btn" aria-label={`Edit ${e.activity || 'entry'}`} onClick={() => setDraft({ entry: e })}>
+                      <Icon name="edit" size={16} />
+                    </button>
+                    <ConfirmButton label="Remove" question="Remove this entry?" onConfirm={() => deleteEntry(e.id)} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="today-total">
+              <span>Total today</span>
+              <strong className="num">{fmtH(todayTotals.hours)}</strong>
+              <span className="muted small">{todayTotals.outreach} contacted</span>
+            </div>
+          </>
+        ) : (
+          <div className="chart-empty">
+            <p>Nothing logged yet today. Add an entry, or start the timer when you begin work.</p>
+          </div>
+        )}
+        <form
+          className="inline-add blocker-row"
+          onSubmit={(ev) => {
+            ev.preventDefault()
+            saveDay({ date: t, hours: todayDay?.hours ?? 0, outreach: todayDay?.outreach ?? 0, notes: todayDay?.notes ?? '', platforms: todayDay?.platforms ?? [], activities: todayDay?.activities ?? [], blockers: blocker.trim() })
+            setBlockerSaved(true)
+          }}
+        >
+          <input id="today-blocker" value={blocker} onChange={(ev) => { setBlocker(ev.target.value); setBlockerSaved(false) }} placeholder="Anything blocking you today? (optional)" aria-label="Blocker for today" />
+          <button type="submit" className="ghost bordered">{blockerSaved ? 'Saved' : 'Save'}</button>
+        </form>
+      </section>
 
       <div className="stats four">
         <div className="stat">
@@ -59,21 +176,20 @@ export function DailyLog({ openNew }: { openNew?: boolean }) {
           <strong>
             <Icon name="flame" size={18} /> {streak} day{streak === 1 ? '' : 's'}
           </strong>
-          <small className="muted">{todays ? 'Checked in today' : 'Check in today to keep it'}</small>
         </div>
         <div className="stat">
           <span>Hours, last 7 days</span>
           <strong>{weekHours}</strong>
-          <small className="muted">{week.filter((d) => byDate.has(d)).length} of 7 days logged</small>
+          <small className="muted">{weekTotals.filter(Boolean).length} of 7 days logged</small>
         </div>
         <div className="stat">
-          <span>People contacted, last 7 days</span>
+          <span>Contacted, last 7 days</span>
           <strong>{weekOutreach}</strong>
         </div>
         <div className="stat">
-          <span>All check-ins</span>
-          <strong>{data.days.length}</strong>
-          <small className="muted">{data.days.reduce((s, d) => s + d.hours, 0)} hours in total</small>
+          <span>All time</span>
+          <strong>{Math.round(allHours * 10) / 10} h</strong>
+          <small className="muted">{checkinDates(data).length} day(s) logged</small>
         </div>
       </div>
 
@@ -83,14 +199,14 @@ export function DailyLog({ openNew }: { openNew?: boolean }) {
           <span className="muted small">Hours worked</span>
         </div>
         <div className="week-strip" role="img" aria-label={`Hours worked over the last 7 days, ${weekHours} in total`}>
-          {week.map((d) => {
-            const e = byDate.get(d)
-            const h = e?.hours ?? 0
+          {week.map((d, i) => {
+            const tot = weekTotals[i]
+            const h = tot?.hours ?? 0
             return (
               <div key={d} className={d === t ? 'wk-day active' : 'wk-day'}>
-                <span className="wk-value num">{e ? `${h}h` : ''}</span>
+                <span className="wk-value num">{tot ? `${Math.round(h * 10) / 10}h` : ''}</span>
                 <span className="wk-track">
-                  <span className={e ? 'wk-bar' : 'wk-bar none'} style={{ height: `${Math.max(e ? 6 : 0, (h / maxHours) * 100)}%` }} />
+                  <span className={tot && h > 0 ? 'wk-bar' : 'wk-bar none'} style={{ height: `${Math.max(tot && h > 0 ? 6 : 0, (h / maxHours) * 100)}%` }} />
                 </span>
                 <span className="wk-label">{d === t ? 'Today' : niceDate(d).split(' ')[0].replace(',', '')}</span>
               </div>
@@ -102,56 +218,55 @@ export function DailyLog({ openNew }: { openNew?: boolean }) {
       <section className="card">
         <div className="card-head">
           <h2>History</h2>
-          <span className="muted small">{data.days.length} day(s)</span>
+          <span className="muted small">Past days are kept as a record and can't be changed.</span>
         </div>
         {history.length === 0 ? (
-          <div className="chart-empty">
-            <p>No check-ins yet. Tap “Check in” to log today.</p>
-          </div>
+          <p className="muted small">Your past days will show here.</p>
         ) : (
-          <div className="table-card flat">
-            <div className="trow thead history-grid">
-              <span>Day</span>
-              <span className="right">Hours</span>
-              <span className="right">Contacted</span>
-              <span>What you did</span>
-            </div>
+          <ul className="rows history">
             {history.map((d) => (
-              <div key={d.date} className={d.date === t ? 'trow history-grid selected' : 'trow history-grid'}>
-                <span className="cell-main">
-                  <span>
-                    <strong>{dayLabel(d.date)}</strong>
-                    <span className="muted small block">{ago(d.date)}</span>
-                  </span>
+              <li key={d.date}>
+                <span className="hist-day">
+                  <strong>{dayLabel(d.date)}</strong>
+                  <span className="muted small block">{ago(d.date)}</span>
                 </span>
-                <span className="right num" data-label="Hours">{d.hours ? `${d.hours} h` : '–'}</span>
-                <span className="right num" data-label="Contacted">
-                  {d.outreach || '–'}
-                  {d.outreach ? <span className="unit-sm"> {d.outreach === 1 ? 'person' : 'people'}</span> : null}
-                </span>
-                <span className="history-notes">
-                  {(d.platforms.length > 0 || d.activities.length > 0) && (
+                <span className="grow hist-body">
+                  {d.entries.length > 0 ? (
                     <span className="tag-row">
-                      {d.activities.map((a) => (
-                        <span key={a} className="badge info">{a}</span>
-                      ))}
-                      {d.platforms.map((p) => (
-                        <span key={p} className="badge">{p}</span>
+                      {d.entries.map((e) => (
+                        <span key={e.id} className="badge info">
+                          {e.activity || 'Work'}
+                          {e.platform ? ` · ${e.platform}` : ''} · {fmtH(e.hours)}
+                        </span>
                       ))}
                     </span>
+                  ) : (
+                    (d.activities.length > 0 || d.platforms.length > 0) && (
+                      <span className="tag-row">
+                        {d.activities.map((a) => (
+                          <span key={a} className="badge info">{a}</span>
+                        ))}
+                        {d.platforms.map((p) => (
+                          <span key={p} className="badge">{p}</span>
+                        ))}
+                      </span>
+                    )
                   )}
                   {d.blockers && <span className="badge warn">Blocked: {d.blockers}</span>}
                   {d.notes && <span className="muted small">{d.notes}</span>}
-                  {!d.blockers && !d.notes && !d.platforms.length && !d.activities.length && <span className="muted small">–</span>}
                 </span>
-              </div>
+                <span className="hist-total right">
+                  <strong className="num">{fmtH(d.hours)}</strong>
+                  <span className="muted small block">{d.outreach} contacted</span>
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-        <p className="muted small">Past check-ins are kept as a record and can't be changed.</p>
       </section>
 
-      {open && <CheckInModal onClose={() => setOpen(false)} />}
+      {draft && <EntryModal draft={draft} onClose={() => setDraft(null)} />}
+      {startOpen && <StartTimerModal onClose={() => setStartOpen(false)} />}
     </div>
   )
 }
@@ -183,66 +298,94 @@ function Stepper({ id, value, onChange, step, unit, label }: { id: string; value
   )
 }
 
-// Today's check-in. Only today can be added or changed.
-export function CheckInModal({ onClose }: { onClose: () => void }) {
-  const { data, saveDay } = useStore()
-  const t = today()
-  const existing = data.days.find((d) => d.date === t)
-  const [form, setForm] = useState<DayEntry>(existing ?? { date: t, hours: 0, outreach: 0, blockers: '', notes: '', platforms: [], activities: [] })
-  const [showNotes, setShowNotes] = useState(!!(existing?.notes || existing?.blockers))
-  const set = (patch: Partial<DayEntry>) => setForm((f) => ({ ...f, ...patch }))
+// Add or edit one entry for today.
+export function EntryModal({ draft, onClose }: { draft: Draft; onClose: () => void }) {
+  const { saveEntry } = useStore()
+  const e = draft.entry
+  const [activity, setActivity] = useState<string[]>(e?.activity ? [e.activity] : draft.activity ? [draft.activity] : [])
+  const [platform, setPlatform] = useState<string[]>(e?.platform ? [e.platform] : draft.platform ? [draft.platform] : [])
+  const [hours, setHours] = useState(e?.hours ?? draft.hours ?? 1)
+  const [outreach, setOutreach] = useState(e?.outreach ?? 0)
+  const [note, setNote] = useState(e?.note ?? '')
+  const [error, setError] = useState('')
+  const fromTimer = !!(draft.startedAt ?? e?.startedAt)
+
+  const save = () => {
+    if (!(hours > 0)) return setError('Add how long you worked (more than 0 hours).')
+    const id = saveEntry({ id: e?.id, activity: activity[0] ?? '', platform: platform[0] ?? '', hours, outreach, note: note.trim(), startedAt: draft.startedAt ?? e?.startedAt ?? null })
+    if (id === null) return setError('Only today can be logged. Past days are kept as a record.')
+    onClose()
+  }
 
   return (
-    <Modal title={existing ? "Edit today's check-in" : 'How did today go?'} onClose={onClose}>
+    <Modal title={e ? 'Edit entry' : fromTimer ? 'Save timer entry' : 'Add an entry'} onClose={onClose}>
       <div className="checkin">
         <p className="muted small checkin-date">
-          <Icon name="checkin" size={14} /> {niceDate(t, true)}
+          <Icon name="checkin" size={14} /> {niceDate(today(), true)}
+          {fromTimer && draft.startedAt ? ` · started ${clock(draft.startedAt)}` : ''}
         </p>
+        <div className="checkin-section">
+          <span className="checkin-label">What did you do?</span>
+          <ChipPicker id="entry-new-activity" list="activities" noun="activity" single selected={activity} onChange={setActivity} />
+        </div>
+        <div className="checkin-section">
+          <span className="checkin-label">Where?</span>
+          <ChipPicker id="entry-new-platform" list="platforms" noun="platform" single selected={platform} onChange={setPlatform} />
+        </div>
         <div className="checkin-grid">
           <div className="checkin-block">
-            <span className="checkin-label">Hours worked</span>
-            <Stepper id="checkin-hours" label="Hours worked" value={form.hours} onChange={(v) => set({ hours: Math.min(24, v) })} step={0.5} unit="hours" />
+            <span className="checkin-label">How long?</span>
+            <Stepper id="entry-hours" label="Hours" value={hours} onChange={(v) => setHours(Math.min(24, v))} step={0.25} unit="hours" />
             <div className="chips">
               {HOUR_PICKS.map((h) => (
-                <button key={h} type="button" className={form.hours === h ? 'chip active' : 'chip'} onClick={() => set({ hours: h })}>
-                  {h}h
+                <button key={h} type="button" className={hours === h ? 'chip active' : 'chip'} onClick={() => setHours(h)}>
+                  {h < 1 ? '30m' : `${h}h`}
                 </button>
               ))}
             </div>
           </div>
           <div className="checkin-block">
-            <span className="checkin-label">People you reached out to</span>
-            <Stepper id="checkin-outreach" label="People contacted" value={form.outreach} onChange={(v) => set({ outreach: Math.round(v) })} step={1} unit="people" />
-            <p className="muted small">Clients, leads, editors, anyone you messaged about work.</p>
+            <span className="checkin-label">People contacted</span>
+            <Stepper id="entry-outreach" label="People contacted" value={outreach} onChange={(v) => setOutreach(Math.round(v))} step={1} unit="people" />
+            <p className="muted small">Leave at 0 if you didn't reach out to anyone.</p>
           </div>
         </div>
-
-        <div className="checkin-section">
-          <span className="checkin-label">Where did you work today?</span>
-          <ChipPicker id="checkin-new-platform" list="platforms" noun="platform" selected={form.platforms} onChange={(v) => set({ platforms: v })} />
-        </div>
-        <div className="checkin-section">
-          <span className="checkin-label">What did you do?</span>
-          <ChipPicker id="checkin-new-activity" list="activities" noun="activity" selected={form.activities} onChange={(v) => set({ activities: v })} />
-        </div>
-
-        {showNotes ? (
-          <div className="checkin-notes">
-            <label className="field">
-              <span>Anything blocking you? (optional)</span>
-              <input id="checkin-blockers" value={form.blockers} onChange={(e) => set({ blockers: e.target.value })} placeholder="e.g. Waiting for client files" />
-            </label>
-            <label className="field">
-              <span>Notes (optional)</span>
-              <textarea id="checkin-notes" rows={2} value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="What did you finish? What's next?" />
-            </label>
-          </div>
-        ) : (
-          <button type="button" className="link add-note" onClick={() => setShowNotes(true)}>
-            + Add a note or blocker
+        <label className="field checkin-section">
+          <span>Note (optional)</span>
+          <input id="entry-note" value={note} onChange={(ev) => setNote(ev.target.value)} placeholder="e.g. Finished logo drafts" />
+        </label>
+        {error && <p className="notice bad">{error}</p>}
+        <div className="actions">
+          <span className="grow" />
+          <button type="button" className="ghost" onClick={onClose}>
+            Cancel
           </button>
-        )}
+          <button type="button" className="primary" onClick={save}>
+            <Icon name="check" size={18} /> {e ? 'Save changes' : 'Save entry'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
 
+// Pick what you're about to work on (optional), then start the clock.
+export function StartTimerModal({ onClose }: { onClose: () => void }) {
+  const { startTimer } = useStore()
+  const [activity, setActivity] = useState<string[]>([])
+  const [platform, setPlatform] = useState<string[]>([])
+  return (
+    <Modal title="Start a work timer" onClose={onClose}>
+      <div className="checkin">
+        <p className="muted small">The timer keeps running even if you close the app on this device. When you stop it, you'll confirm the entry before it's saved.</p>
+        <div className="checkin-section">
+          <span className="checkin-label">What are you working on? (optional)</span>
+          <ChipPicker id="timer-new-activity" list="activities" noun="activity" single selected={activity} onChange={setActivity} />
+        </div>
+        <div className="checkin-section">
+          <span className="checkin-label">Where? (optional)</span>
+          <ChipPicker id="timer-new-platform" list="platforms" noun="platform" single selected={platform} onChange={setPlatform} />
+        </div>
         <div className="actions">
           <span className="grow" />
           <button type="button" className="ghost" onClick={onClose}>
@@ -252,11 +395,11 @@ export function CheckInModal({ onClose }: { onClose: () => void }) {
             type="button"
             className="primary"
             onClick={() => {
-              saveDay({ ...form, date: t })
+              startTimer(activity[0] ?? '', platform[0] ?? '')
               onClose()
             }}
           >
-            <Icon name="check" size={18} /> {existing ? 'Update' : 'Save check-in'}
+            <Icon name="clock" size={18} /> Start timer
           </button>
         </div>
       </div>

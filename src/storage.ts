@@ -25,6 +25,7 @@ export const EMPTY_DATA: AppData = {
   payments: [],
   expenses: [],
   days: [],
+  entries: [],
   goals: [],
   settings: DEFAULT_SETTINGS,
 }
@@ -42,6 +43,7 @@ export function loadData(): AppData {
       expenses: parsed.expenses ?? [],
       days: (parsed.days ?? []).map((d) => ({ ...d, platforms: d.platforms ?? [], activities: d.activities ?? [] })),
       goals: parsed.goals ?? [],
+      entries: parsed.entries ?? [],
       settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) },
       example: parsed.example ?? false,
     }
@@ -124,9 +126,14 @@ export function exampleData(): AppData {
       { month: monthKey(0), amount: 1500 },
     ],
     days: [
-      { date: d(-1), hours: 5, outreach: 3, blockers: '', notes: '', platforms: ['Fiverr', 'LinkedIn'], activities: ['Worked on orders', 'Sent proposals'] },
-      { date: d(-2), hours: 3.5, outreach: 1, blockers: 'Waiting on client files', notes: '', platforms: ['Upwork'], activities: ['Scouted for clients'] },
-      { date: d(-3), hours: 6, outreach: 2, blockers: '', notes: '', platforms: ['Fiverr'], activities: ['Worked on orders', 'Followed up with clients'] },
+      { date: d(-2), hours: 0, outreach: 0, blockers: 'Waiting on client files', notes: '', platforms: [], activities: [] },
+    ],
+    entries: [
+      { id: 'ex_k1', date: d(-1), activity: 'Worked on orders', platform: 'Fiverr', hours: 3, outreach: 0, note: 'Logo drafts', startedAt: null, createdAt: d(-1) },
+      { id: 'ex_k2', date: d(-1), activity: 'Sent proposals', platform: 'LinkedIn', hours: 2, outreach: 3, note: '', startedAt: null, createdAt: d(-1) },
+      { id: 'ex_k3', date: d(-2), activity: 'Scouted for clients', platform: 'Upwork', hours: 3.5, outreach: 1, note: '', startedAt: null, createdAt: d(-2) },
+      { id: 'ex_k4', date: d(-3), activity: 'Worked on orders', platform: 'Fiverr', hours: 4.5, outreach: 0, note: '', startedAt: null, createdAt: d(-3) },
+      { id: 'ex_k5', date: d(-3), activity: 'Followed up with clients', platform: 'WhatsApp', hours: 1.5, outreach: 2, note: '', startedAt: null, createdAt: d(-3) },
     ],
   }
 }

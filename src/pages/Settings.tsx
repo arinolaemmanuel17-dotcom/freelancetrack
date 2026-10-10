@@ -56,6 +56,7 @@ export function Settings() {
     downloadCsv(`payments-${t}.csv`, rows(data.payments))
     downloadCsv(`expenses-${t}.csv`, rows(data.expenses))
     downloadCsv(`daily-checkins-${t}.csv`, rows(data.days))
+    downloadCsv(`checkin-entries-${t}.csv`, rows(data.entries))
     setMessage('Downloaded your data as CSV files.')
   }
 

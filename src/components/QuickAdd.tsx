@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from './Icon'
 
-export type QuickKind = 'client' | 'order' | 'payment' | 'expense' | 'checkin'
+export type QuickKind = 'client' | 'order' | 'payment' | 'expense' | 'checkin' | 'timer'
 
 const ITEMS: { kind: QuickKind; label: string; icon: string }[] = [
   { kind: 'order', label: 'New order', icon: 'orders' },
   { kind: 'client', label: 'New client', icon: 'clients' },
   { kind: 'payment', label: 'Record payment', icon: 'money' },
   { kind: 'expense', label: 'Add expense', icon: 'expense' },
-  { kind: 'checkin', label: 'Check in for today', icon: 'checkin' },
+  { kind: 'checkin', label: 'Add check-in entry', icon: 'checkin' },
+  { kind: 'timer', label: 'Start work timer', icon: 'clock' },
 ]
 
 // The "New" button. variant="fab" is the round button on phones.

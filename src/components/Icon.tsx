@@ -21,6 +21,7 @@ const PATHS: Record<string, string> = {
   upload: 'M12 16V4M7 9l5-5 5 5M4 20h16',
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11',
   expense: 'M12 3v18M17 7H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
 }
 
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {

@@ -425,3 +425,31 @@ button.ghost.bordered { border-color: var(--border); color: var(--text); align-s
 .goal-form { display: flex; flex-direction: column; gap: 10px; }
 .goal-window { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .goal-locked { display: flex; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+
+/* ---------- entries and timer ---------- */
+.timeline li { align-items: center; }
+.tl-time { width: 64px; flex: none; }
+.tl-actions { display: inline-flex; align-items: center; gap: 2px; }
+.today-total { display: flex; align-items: baseline; gap: 10px; justify-content: flex-end; padding-top: 10px; border-top: 1px solid var(--border); }
+.today-total strong { font-size: 20px; }
+.blocker-row { margin-top: 4px; }
+.timer-card { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); background: var(--accent-soft); }
+.timer-main { display: flex; align-items: center; gap: 14px; }
+.timer-main p { margin: 0; }
+.timer-time { font-size: 36px; font-weight: 600; letter-spacing: -0.02em; display: block; line-height: 1.2; }
+.timer-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); flex: none; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.35; } }
+.timer-pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; background: var(--accent-soft); border-color: transparent; color: var(--accent-strong); font-weight: 600; flex: none; }
+.timer-pill-label { font-weight: 500; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history .hist-day { width: 120px; flex: none; }
+.hist-body { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.hist-total { flex: none; text-align: right; }
+@media (max-width: 860px) {
+  .timer-pill-label { display: none; }
+  .history li { flex-wrap: wrap; }
+  .history .hist-day { width: auto; flex: 1; }
+  .history .hist-body { order: 3; flex-basis: 100%; }
+  .tl-time { width: 52px; }
+}
+.tl-actions .danger { padding: 5px 10px; font-size: 13px; border-color: transparent; }
+.tl-actions .danger:hover { border-color: var(--bad-bg); }

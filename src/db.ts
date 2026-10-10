@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { normalizeStatus, type MonthlyGoal, type AppData, type ChecklistItem, type Client, type DayEntry, type Expense, type Order, type Payment, type PaymentStatus, type Settings } from './types'
+import { normalizeStatus, type CheckinEntry, type MonthlyGoal, type AppData, type ChecklistItem, type Client, type DayEntry, type Expense, type Order, type Payment, type PaymentStatus, type Settings } from './types'
 import { DEFAULT_SETTINGS } from './storage'
 
 // Maps between the app's camelCase records and the database's snake_case rows.
@@ -62,6 +62,18 @@ const toExpense = (r: Row): Expense => ({
   notes: str(r.notes),
 })
 
+const toEntry = (r: Row): CheckinEntry => ({
+  id: str(r.id),
+  date: str(r.date),
+  activity: str(r.activity),
+  platform: str(r.platform),
+  hours: num(r.hours) ?? 0,
+  outreach: num(r.outreach) ?? 0,
+  note: str(r.note),
+  startedAt: (r.started_at as string | null) ?? null,
+  createdAt: str(r.created_at),
+})
+
 const toDay = (r: Row): DayEntry => ({
   platforms: Array.isArray(r.platforms) ? (r.platforms as string[]) : [],
   activities: Array.isArray(r.activities) ? (r.activities as string[]) : [],
@@ -98,7 +110,7 @@ function check<T>(res: { data: T; error: { message: string } | null }): T {
 
 // Loads everything for the signed-in user. Row-level security returns only their rows.
 export async function fetchAll(): Promise<AppData> {
-  const [clients, orders, payments, expenses, days, settings, goals] = await Promise.all([
+  const [clients, orders, payments, expenses, days, settings, goals, entries] = await Promise.all([
     supabase.from('clients').select('*').order('name'),
     supabase.from('orders').select('*').order('created_at'),
     supabase.from('payments').select('*').order('date', { ascending: false }),
@@ -106,6 +118,7 @@ export async function fetchAll(): Promise<AppData> {
     supabase.from('day_entries').select('*').order('date', { ascending: false }),
     supabase.from('user_settings').select('*').maybeSingle(),
     supabase.from('monthly_goals').select('month, amount').order('month'),
+    supabase.from('checkin_entries').select('*').order('date', { ascending: false }).order('created_at'),
   ])
   return {
     clients: (check(clients) ?? []).map(toClient),
@@ -114,6 +127,7 @@ export async function fetchAll(): Promise<AppData> {
     expenses: (check(expenses) ?? []).map(toExpense),
     days: (check(days) ?? []).map(toDay),
     settings: toSettings(check(settings)),
+    entries: (check(entries) ?? []).map(toEntry),
     goals: (check(goals) ?? []).map((g: Row): MonthlyGoal => ({ month: str(g.month), amount: num(g.amount) ?? 0 })),
     example: false,
   }
@@ -186,6 +200,25 @@ export async function upsertExpense(e: Expense) {
   )
 }
 
+export async function upsertEntry(e: CheckinEntry) {
+  check(
+    await supabase.from('checkin_entries').upsert({
+      id: e.id,
+      date: e.date,
+      activity: e.activity,
+      platform: e.platform,
+      hours: e.hours,
+      outreach: e.outreach,
+      note: e.note,
+      started_at: e.startedAt,
+    }),
+  )
+}
+
+export async function removeEntry(id: string) {
+  check(await supabase.from('checkin_entries').delete().eq('id', id))
+}
+
 export async function upsertGoal(userId: string, g: MonthlyGoal) {
   check(await supabase.from('monthly_goals').upsert({ user_id: userId, month: g.month, amount: g.amount, updated_at: new Date().toISOString() }, { onConflict: 'user_id,month' }))
 }
@@ -242,6 +275,7 @@ export async function eraseAll(userId: string) {
   check(await supabase.from('expenses').delete().eq('user_id', userId))
   check(await supabase.from('day_entries').delete().eq('user_id', userId))
   check(await supabase.from('monthly_goals').delete().eq('user_id', userId))
+  check(await supabase.from('checkin_entries').delete().eq('user_id', userId))
   check(await supabase.from('user_settings').delete().eq('user_id', userId))
 }
 

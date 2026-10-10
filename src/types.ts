@@ -97,6 +97,19 @@ export interface DayEntry {
   activities: string[] // what you did that day
 }
 
+// One block of work on a day: what you did, where, and for how long.
+export interface CheckinEntry {
+  id: string
+  date: string // YYYY-MM-DD
+  activity: string
+  platform: string
+  hours: number
+  outreach: number
+  note: string
+  startedAt: string | null // set when the entry came from the timer
+  createdAt: string
+}
+
 export interface MonthlyGoal {
   month: string // YYYY-MM
   amount: number // in base currency
@@ -124,6 +137,7 @@ export interface AppData {
   payments: Payment[]
   expenses: Expense[]
   days: DayEntry[]
+  entries: CheckinEntry[]
   goals: MonthlyGoal[]
   settings: Settings
   example?: boolean // true while the app shows made-up example records

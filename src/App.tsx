@@ -17,6 +17,7 @@ import { ClientForm, ExpenseForm, OrderForm, PaymentForm } from './components/Fo
 import { Icon } from './components/Icon'
 import { CurrencySwitch } from './components/CurrencySwitch'
 import { SetupWelcome } from './components/Setup'
+import { elapsed, useNow } from './pages/DailyLog'
 import logo from './assets/logo-mark.png?inline'
 import './App.css'
 
@@ -52,7 +53,7 @@ function Shell() {
     window.scrollTo({ top: 0 })
   }
 
-  const onQuick = (k: QuickKind) => (k === 'checkin' ? go('daily', 'new') : setQuick(k))
+  const onQuick = (k: QuickKind) => (k === 'checkin' ? go('daily', 'entry') : k === 'timer' ? go('daily', 'timer') : setQuick(k))
   const isActive = (n: (typeof NAV)[number]) => route.page === n.id || !!n.also?.includes(route.page)
   const moreActive = !TABS.includes(route.page) && !['order', 'client'].includes(route.page)
 
@@ -93,6 +94,7 @@ function Shell() {
             <img className="logo-img" src={logo} alt="Freelance Tracker" />
           </div>
           <Search onOpen={(page, id) => go(page, id)} />
+          <TimerPill onOpen={() => go('daily')} />
           <CurrencySwitch />
           <Notifications onOpen={(page, id) => go(page, id)} />
         </header>
@@ -116,7 +118,7 @@ function Shell() {
             {route.page === 'order' && route.id && <OrderDetail go={go} id={route.id} />}
             {route.page === 'money' && <Money go={go} initialId={route.id} />}
             {route.page === 'reports' && <Reports />}
-            {route.page === 'daily' && <DailyLog openNew={route.id === 'new'} />}
+            {route.page === 'daily' && <DailyLog open={route.id === 'entry' || route.id === 'new' ? 'entry' : route.id === 'timer' ? 'timer' : undefined} />}
             {route.page === 'settings' && <Settings />}
           </main>
         )}
@@ -164,6 +166,20 @@ function Shell() {
       {quick === 'payment' && <PaymentForm payment={null} onClose={() => setQuick(null)} />}
       {quick === 'expense' && <ExpenseForm expense={null} onClose={() => setQuick(null)} />}
     </div>
+  )
+}
+
+// Shows a running work timer in the top bar, from any page.
+function TimerPill({ onOpen }: { onOpen: () => void }) {
+  const { timer } = useStore()
+  const now = useNow(!!timer)
+  if (!timer) return null
+  return (
+    <button className="timer-pill" onClick={onOpen} aria-label={`Timer running, ${elapsed(timer.startedAt, now)}. Open check-ins`}>
+      <span className="timer-dot" aria-hidden="true" />
+      <span className="num">{elapsed(timer.startedAt, now)}</span>
+      {timer.activity && <span className="timer-pill-label">{timer.activity}</span>}
+    </button>
   )
 }
 

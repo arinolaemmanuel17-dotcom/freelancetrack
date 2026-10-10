@@ -1,4 +1,4 @@
-import type { AppData, Client, Order, Payment } from './types'
+import type { AppData, CheckinEntry, Client, DayEntry, Order, Payment } from './types'
 import { OPEN_STATUSES } from './types'
 
 export function today(): string {
@@ -260,7 +260,7 @@ export function clientStats(data: AppData, clientId: string): ClientStats {
 
 // Consecutive days with a check-in, ending today (or yesterday if today isn't logged yet).
 export function checkinStreak(data: AppData, now = today()): number {
-  const dates = new Set(data.days.map((d) => d.date))
+  const dates = new Set([...data.days.filter((d) => d.hours > 0 || d.outreach > 0 || d.platforms.length || d.activities.length).map((d) => d.date), ...data.entries.map((e) => e.date)])
   let day = dates.has(now) ? now : addDays(now, -1)
   let n = 0
   while (dates.has(day)) {
@@ -268,6 +268,65 @@ export function checkinStreak(data: AppData, now = today()): number {
     day = addDays(day, -1)
   }
   return n
+}
+
+export interface DayTotals {
+  date: string
+  hours: number
+  outreach: number
+  platforms: string[]
+  activities: string[]
+  entries: CheckinEntry[]
+  blockers: string
+  notes: string
+}
+
+// One day's totals. Days with entries add up their entries; older days use the single check-in.
+export function dayTotals(data: AppData, date: string): DayTotals | null {
+  const entries = data.entries.filter((e) => e.date === date).sort((a, b) => (a.startedAt ?? a.createdAt).localeCompare(b.startedAt ?? b.createdAt))
+  const day = data.days.find((d) => d.date === date)
+  if (!entries.length && !day) return null
+  const uniq = (xs: string[]) => [...new Set(xs.filter(Boolean))]
+  if (entries.length) {
+    return {
+      date,
+      hours: Math.round(entries.reduce((s, e) => s + e.hours, 0) * 100) / 100,
+      outreach: entries.reduce((s, e) => s + e.outreach, 0),
+      platforms: uniq(entries.map((e) => e.platform)),
+      activities: uniq(entries.map((e) => e.activity)),
+      entries,
+      blockers: day?.blockers ?? '',
+      notes: day?.notes ?? '',
+    }
+  }
+  const d = day as DayEntry
+  return { date, hours: d.hours, outreach: d.outreach, platforms: d.platforms, activities: d.activities, entries: [], blockers: d.blockers, notes: d.notes }
+}
+
+export function checkinDates(data: AppData): string[] {
+  return [...new Set([...data.days.map((d) => d.date), ...data.entries.map((e) => e.date)])].sort((a, b) => b.localeCompare(a))
+}
+
+// Hours and contacts per platform or activity. Entries count exactly; older single
+// check-ins share their hours equally between what was picked that day.
+export function workBy(data: AppData, key: 'platform' | 'activity', inRange: (d: string) => boolean) {
+  const m = new Map<string, { hours: number; outreach: number; days: Set<string> }>()
+  const add = (k: string, date: string, hours: number, outreach: number) => {
+    if (!k) return
+    const cur = m.get(k) ?? { hours: 0, outreach: 0, days: new Set<string>() }
+    cur.hours += hours
+    cur.outreach += outreach
+    cur.days.add(date)
+    m.set(k, cur)
+  }
+  const entryDates = new Set(data.entries.map((e) => e.date))
+  for (const e of data.entries) if (inRange(e.date)) add(key === 'platform' ? e.platform : e.activity, e.date, e.hours, e.outreach)
+  for (const d of data.days) {
+    if (!inRange(d.date) || entryDates.has(d.date)) continue
+    const list = key === 'platform' ? d.platforms : d.activities
+    for (const k of list) add(k, d.date, d.hours / list.length, d.outreach / list.length)
+  }
+  return m
 }
 
 // Sum received money (base) grouped by a key, largest first.
