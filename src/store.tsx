@@ -248,9 +248,12 @@ export function StoreProvider({ account, children }: { account?: Account | null;
           dueDate: o.dueDate !== undefined ? o.dueDate : (existing?.dueDate ?? null),
           notes: o.notes ?? existing?.notes ?? '',
           checklist: o.checklist ?? existing?.checklist ?? [],
+          completedAt: null,
           createdAt: existing?.createdAt ?? now(),
           updatedAt: now(),
         }
+        // Remember when it was completed (kept while it stays Completed).
+        row.completedAt = row.status === 'Completed' ? (existing?.status === 'Completed' ? (existing.completedAt ?? today()) : today()) : null
         setData((d) => ({ ...d, orders: [...d.orders.filter((x) => x.id !== id), row] }))
         persist('The order', () => db.upsertOrder(row))
         // Completed means paid: settle whatever is still owed.
@@ -343,6 +346,7 @@ export function StoreProvider({ account, children }: { account?: Account | null;
       },
 
       saveDay(day) {
+        if (day.date !== today()) return // only today's check-in can be added or changed
         setData((d) => ({ ...d, days: [...d.days.filter((x) => x.date !== day.date), day] }))
         persist('The check-in', () => db.upsertDay(userId, day))
       },

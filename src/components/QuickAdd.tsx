@@ -8,7 +8,7 @@ const ITEMS: { kind: QuickKind; label: string; icon: string }[] = [
   { kind: 'client', label: 'New client', icon: 'clients' },
   { kind: 'payment', label: 'Record payment', icon: 'money' },
   { kind: 'expense', label: 'Add expense', icon: 'expense' },
-  { kind: 'checkin', label: "Today's check-in", icon: 'checkin' },
+  { kind: 'checkin', label: 'Check in for today', icon: 'checkin' },
 ]
 
 // The "New" button. variant="fab" is the round button on phones.

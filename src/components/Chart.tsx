@@ -23,15 +23,14 @@ export function MonthColumns({
   title: string
 }) {
   const [hover, setHover] = useState<number | null>(null)
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const [W, setW] = useState(640)
-  useEffect(() => {
-    const el = wrapRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver((entries) => setW(Math.max(260, Math.round(entries[0].contentRect.width))))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+  const { ref: wrapRef, w: W } = useWidth()
+  if (series.every((sr) => sr.values.every((v) => v <= 0))) {
+    return (
+      <div className="chart-empty" ref={wrapRef}>
+        <p>Nothing recorded in this period yet.</p>
+      </div>
+    )
+  }
   const H = height
   const pad = { top: 16, right: 8, bottom: 26, left: 48 }
   const innerW = W - pad.left - pad.right
@@ -145,11 +144,119 @@ function roundTop(x: number, y: number, w: number, h: number): string {
   return `M${x},${y + h} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h} Z`
 }
 
+// Round, whole-number steps (0, 50, 100, 150…) so the scale reads like money, never $0.3.
 function niceTicks(max: number): number[] {
+  if (max <= 0) return [0, 1]
   const raw = max / 4
   const mag = Math.pow(10, Math.floor(Math.log10(raw)))
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? raw
+  let step = [1, 2, 5, 10].map((m) => m * mag).find((x) => x >= raw) ?? raw
+  step = Math.max(1, Math.round(step))
   const out: number[] = []
-  for (let v = 0; v <= max + step * 0.999; v += step) out.push(Math.round(v * 100) / 100)
+  for (let v = 0; v < max + step; v += step) out.push(v)
   return out
+}
+
+// Watches the width of a container so charts draw crisply at any size.
+function useWidth(initial = 640) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [w, setW] = useState(initial)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => setW(Math.max(240, Math.round(entries[0].contentRect.width))))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return { ref, w }
+}
+
+// One line with a soft area under it: the simplest way to read a trend.
+export function LineChart({
+  labels,
+  values,
+  currency,
+  title,
+  height = 200,
+  empty,
+}: {
+  labels: string[]
+  values: number[]
+  currency: string
+  title: string
+  height?: number
+  empty: string
+}) {
+  const { ref, w: W } = useWidth()
+  const [hover, setHover] = useState<number | null>(null)
+  const total = values.reduce((a, b) => a + b, 0)
+  if (total <= 0) {
+    return (
+      <div className="chart-empty" ref={ref}>
+        <svg width="56" height="40" viewBox="0 0 56 40" aria-hidden="true">
+          <path d="M2 34 L16 24 L28 28 L42 12 L54 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <p>{empty}</p>
+      </div>
+    )
+  }
+  const H = height
+  const pad = { top: 24, right: 16, bottom: 26, left: 52 }
+  const innerW = W - pad.left - pad.right
+  const innerH = H - pad.top - pad.bottom
+  const ticks = niceTicks(Math.max(...values))
+  const top = ticks[ticks.length - 1]
+  const x = (i: number) => pad.left + (values.length === 1 ? innerW / 2 : (innerW * i) / (values.length - 1))
+  const y = (v: number) => pad.top + innerH - (v / top) * innerH
+  const line = values.map((v, i) => `${i ? 'L' : 'M'}${x(i)},${y(v)}`).join(' ')
+  const area = `${line} L${x(values.length - 1)},${y(0)} L${x(0)},${y(0)} Z`
+  const last = values.length - 1
+  const show = hover ?? last
+
+  return (
+    <figure className="chart" aria-label={title}>
+      <div className="chart-wrap" ref={ref}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} className="chart-svg" onMouseLeave={() => setHover(null)}>
+          {ticks.map((t) => (
+            <g key={t}>
+              <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} className="grid" />
+              <text x={pad.left - 8} y={y(t) + 4} textAnchor="end" className="tick">
+                {compactMoney(t, currency)}
+              </text>
+            </g>
+          ))}
+          <path d={area} fill="var(--series-1)" opacity="0.1" />
+          <path d={line} fill="none" stroke="var(--series-1)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={pad.top} y2={pad.top + innerH} className="crosshair" />}
+          {values.map((v, i) => (
+            <g key={i}>
+              <circle cx={x(i)} cy={y(v)} r={i === show ? 5 : 3.5} fill="var(--series-1)" stroke="var(--surface)" strokeWidth="2" />
+              <rect x={x(i) - innerW / values.length / 2} y={pad.top} width={innerW / values.length} height={innerH} fill="transparent" onMouseEnter={() => setHover(i)} onClick={() => setHover(i)} />
+              <text x={x(i)} y={H - 8} textAnchor="middle" className="tick">
+                {labels[i]}
+              </text>
+            </g>
+          ))}
+          <text
+            x={x(show) > W - 70 ? x(show) + 4 : x(show) < pad.left + 40 ? x(show) - 4 : x(show)}
+            y={y(values[show]) - 12}
+            textAnchor={x(show) > W - 70 ? 'end' : x(show) < pad.left + 40 ? 'start' : 'middle'}
+            className="point-label"
+          >
+            {formatMoney(values[show], currency)}
+          </text>
+        </svg>
+      </div>
+      <table className="sr-only">
+        <caption>{title}</caption>
+        <tbody>
+          {labels.map((l, i) => (
+            <tr key={l}>
+              <td>{l}</td>
+              <td>{formatMoney(values[i], currency)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </figure>
+  )
 }

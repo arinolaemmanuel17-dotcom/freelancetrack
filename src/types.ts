@@ -56,6 +56,7 @@ export interface Order {
   dueDate: string | null // YYYY-MM-DD
   notes: string
   checklist: ChecklistItem[]
+  completedAt: string | null // YYYY-MM-DD, set when the order becomes Completed
   createdAt: string
   updatedAt: string
 }

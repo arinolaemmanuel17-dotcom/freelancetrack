@@ -35,7 +35,7 @@ export function loadData(): AppData {
     const parsed = JSON.parse(raw) as Partial<AppData>
     return {
       clients: parsed.clients ?? [],
-      orders: (parsed.orders ?? []).map((o) => ({ ...o, status: normalizeStatus(o.status), checklist: o.checklist ?? [] })),
+      orders: (parsed.orders ?? []).map((o) => ({ ...o, status: normalizeStatus(o.status), checklist: o.checklist ?? [], completedAt: o.completedAt ?? (normalizeStatus(o.status) === 'Completed' ? (o.updatedAt ?? '').slice(0, 10) || null : null) })),
       payments: parsed.payments ?? [],
       expenses: parsed.expenses ?? [],
       days: parsed.days ?? [],
@@ -87,13 +87,13 @@ export function exampleData(): AppData {
       { id: 'ex_c4', name: 'Example: Okafor Legal', contact: '+234 800 000 0000', platform: 'Referral', notes: 'Pays on time', lastContact: d(-12), createdAt: d(-90) },
     ],
     orders: [
-      { id: 'ex_o1', clientId: 'ex_c1', title: 'New logo and menu', service: 'Logo design', status: 'Active', platform: 'Direct', price: 400, currency: 'USD', startDate: d(-10), dueDate: d(-2), notes: '', checklist: [item('k1', 'Moodboard', true), item('k2', 'Three logo drafts', true), item('k3', 'Final files', false)], createdAt: d(-10), updatedAt: d(-1) },
-      { id: 'ex_o2', clientId: 'ex_c2', title: 'Homepage copy', service: 'Website copy', status: 'Completed', platform: 'Fiverr', price: 180, currency: 'USD', startDate: d(-14), dueDate: d(-4), notes: '', checklist: [], createdAt: d(-14), updatedAt: d(-4) },
-      { id: 'ex_o3', clientId: 'ex_c3', title: 'Strategy call', service: 'Consulting call', status: 'Proposal', platform: 'Referral', price: null, currency: 'NGN', startDate: null, dueDate: d(2), notes: 'Waiting on budget', checklist: [], createdAt: d(-3), updatedAt: d(-3) },
-      { id: 'ex_o4', clientId: 'ex_c1', title: 'Social media pack', service: 'Social media pack', status: 'Completed', platform: 'Direct', price: 120, currency: 'USD', startDate: d(-40), dueDate: d(-30), notes: '', checklist: [], createdAt: d(-40), updatedAt: d(-28) },
-      { id: 'ex_o5', clientId: 'ex_c4', title: 'Website refresh', service: 'Website copy', status: 'Completed', platform: 'Referral', price: 650, currency: 'USD', startDate: d(-95), dueDate: d(-70), notes: '', checklist: [], createdAt: d(-95), updatedAt: d(-68) },
-      { id: 'ex_o6', clientId: 'ex_c2', title: 'Brand guide', service: 'Logo design', status: 'Completed', platform: 'Fiverr', price: 300, currency: 'USD', startDate: d(-130), dueDate: d(-110), notes: '', checklist: [], createdAt: d(-130), updatedAt: d(-105) },
-      { id: 'ex_o7', clientId: 'ex_c4', title: 'Monthly advice call', service: 'Consulting call', status: 'Active', platform: 'Referral', price: 150000, currency: 'NGN', startDate: d(-5), dueDate: d(6), notes: '', checklist: [], createdAt: d(-5), updatedAt: d(-5) },
+      { id: 'ex_o1', clientId: 'ex_c1', title: 'New logo and menu', service: 'Logo design', status: 'Active', platform: 'Direct', price: 400, currency: 'USD', startDate: d(-10), dueDate: d(-2), notes: '', checklist: [item('k1', 'Moodboard', true), item('k2', 'Three logo drafts', true), item('k3', 'Final files', false)], completedAt: null, createdAt: d(-10), updatedAt: d(-1) },
+      { id: 'ex_o2', clientId: 'ex_c2', title: 'Homepage copy', service: 'Website copy', status: 'Completed', platform: 'Fiverr', price: 180, currency: 'USD', startDate: d(-14), dueDate: d(-4), notes: '', checklist: [], completedAt: d(-4), createdAt: d(-14), updatedAt: d(-4) },
+      { id: 'ex_o3', clientId: 'ex_c3', title: 'Strategy call', service: 'Consulting call', status: 'Proposal', platform: 'Referral', price: null, currency: 'NGN', startDate: null, dueDate: d(2), notes: 'Waiting on budget', checklist: [], completedAt: null, createdAt: d(-3), updatedAt: d(-3) },
+      { id: 'ex_o4', clientId: 'ex_c1', title: 'Social media pack', service: 'Social media pack', status: 'Completed', platform: 'Direct', price: 120, currency: 'USD', startDate: d(-40), dueDate: d(-30), notes: '', checklist: [], completedAt: d(-29), createdAt: d(-40), updatedAt: d(-28) },
+      { id: 'ex_o5', clientId: 'ex_c4', title: 'Website refresh', service: 'Website copy', status: 'Completed', platform: 'Referral', price: 650, currency: 'USD', startDate: d(-95), dueDate: d(-70), notes: '', checklist: [], completedAt: d(-72), createdAt: d(-95), updatedAt: d(-68) },
+      { id: 'ex_o6', clientId: 'ex_c2', title: 'Brand guide', service: 'Logo design', status: 'Completed', platform: 'Fiverr', price: 300, currency: 'USD', startDate: d(-130), dueDate: d(-110), notes: '', checklist: [], completedAt: d(-112), createdAt: d(-130), updatedAt: d(-105) },
+      { id: 'ex_o7', clientId: 'ex_c4', title: 'Monthly advice call', service: 'Consulting call', status: 'Active', platform: 'Referral', price: 150000, currency: 'NGN', startDate: d(-5), dueDate: d(6), notes: '', checklist: [], completedAt: null, createdAt: d(-5), updatedAt: d(-5) },
     ],
     payments: [
       { id: 'ex_p1', orderId: 'ex_o6', clientId: 'ex_c2', date: d(-105), amount: 300, currency: 'USD', rateToBase: 1, method: 'Other', status: 'Received', notes: '' },

@@ -31,6 +31,7 @@ const toOrder = (r: Row): Order => ({
   dueDate: (r.due_date as string | null) ?? null,
   notes: str(r.notes),
   checklist: Array.isArray(r.checklist) ? (r.checklist as ChecklistItem[]) : [],
+  completedAt: (r.completed_at as string | null) ?? null,
   createdAt: str(r.created_at),
   updatedAt: str(r.updated_at),
 })
@@ -141,6 +142,7 @@ export async function upsertOrder(o: Order) {
       due_date: o.dueDate,
       notes: o.notes,
       checklist: o.checklist,
+      completed_at: o.completedAt,
     }),
   )
 }

@@ -28,8 +28,8 @@ const NAV: { id: Page; label: string; icon: string; also?: Page[] }[] = [
   { id: 'orders', label: 'Orders', icon: 'orders', also: ['order'] },
   { id: 'clients', label: 'Clients', icon: 'clients', also: ['client'] },
   { id: 'money', label: 'Money', icon: 'money' },
-  { id: 'reports', label: 'Reports', icon: 'reports' },
-  { id: 'daily', label: 'Check-in', icon: 'checkin' },
+  { id: 'reports', label: 'Statistics', icon: 'reports' },
+  { id: 'daily', label: 'Check-ins', icon: 'checkin' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ]
 const TABS: Page[] = ['home', 'orders', 'clients', 'money']
@@ -52,7 +52,7 @@ function Shell() {
     window.scrollTo({ top: 0 })
   }
 
-  const onQuick = (k: QuickKind) => (k === 'checkin' ? go('daily') : setQuick(k))
+  const onQuick = (k: QuickKind) => (k === 'checkin' ? go('daily', 'new') : setQuick(k))
   const isActive = (n: (typeof NAV)[number]) => route.page === n.id || !!n.also?.includes(route.page)
   const moreActive = !TABS.includes(route.page) && !['order', 'client'].includes(route.page)
 
@@ -116,7 +116,7 @@ function Shell() {
             {route.page === 'order' && route.id && <OrderDetail go={go} id={route.id} />}
             {route.page === 'money' && <Money go={go} initialId={route.id} />}
             {route.page === 'reports' && <Reports />}
-            {route.page === 'daily' && <DailyLog />}
+            {route.page === 'daily' && <DailyLog openNew={route.id === 'new'} />}
             {route.page === 'settings' && <Settings />}
           </main>
         )}
