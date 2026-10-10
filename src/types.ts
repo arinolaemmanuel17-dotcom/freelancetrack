@@ -98,6 +98,9 @@ export interface Settings {
   methods: string[]
   categories: string[] // expense categories
   monthlyGoal: number // in base currency; 0 means no goal set
+  amountStep: number // how much +/− and arrow keys change money amounts
+  altCurrency: string // second currency to view totals in ('' = none)
+  altRate: number // 1 base = altRate alt (e.g. 1 USD = 1500 NGN); 0 = use latest payment rate
   outreachGapDays: number
 }
 

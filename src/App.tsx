@@ -15,6 +15,7 @@ import { Notifications } from './components/Notifications'
 import { QuickAdd, type QuickKind } from './components/QuickAdd'
 import { ClientForm, ExpenseForm, OrderForm, PaymentForm } from './components/Forms'
 import { Icon } from './components/Icon'
+import { CurrencySwitch } from './components/CurrencySwitch'
 import './App.css'
 
 export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings'
@@ -87,6 +88,7 @@ function Shell() {
             <span className="logo" aria-hidden="true">FT</span>
           </div>
           <Search onOpen={(page, id) => go(page, id)} />
+          <CurrencySwitch />
           <Notifications onOpen={(page, id) => go(page, id)} />
         </header>
 

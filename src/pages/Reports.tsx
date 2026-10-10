@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { BarList, MonthColumns } from '../components/Chart'
-import { clientName, downloadCsv, formatMoney, lastMonths, monthLabel, receivedIn, spentIn, toBase, today, totalOutstanding } from '../utils'
+import { clientName, downloadCsv, lastMonths, monthLabel, receivedIn, spentIn, toBase, today, totalOutstanding } from '../utils'
 
 type Range = 6 | 12 | 0 // months; 0 = all time
 
 export function Reports() {
-  const { data } = useStore()
+  const { data, money, view, toView } = useStore()
   const base = data.settings.baseCurrency
   const [range, setRange] = useState<Range>(6)
 
@@ -27,7 +27,7 @@ export function Reports() {
       const k = keyOf(p) || 'Not set'
       map.set(k, (map.get(k) ?? 0) + toBase(p.amount, p.rateToBase))
     }
-    return [...map.entries()].map(([key, value]) => ({ key, value })).sort((a, b) => b.value - a.value)
+    return [...map.entries()].map(([key, value]) => ({ key, value: toView(value) })).sort((a, b) => b.value - a.value)
   }
   const orderOf = (id: string | null) => data.orders.find((o) => o.id === id)
   const byClient = sumBy((p) => clientName(data, p.clientId)).slice(0, 8)
@@ -41,7 +41,7 @@ export function Reports() {
       if (!inRange(e.date)) continue
       map.set(e.category || 'Not set', (map.get(e.category || 'Not set') ?? 0) + toBase(e.amount, e.rateToBase))
     }
-    return [...map.entries()].map(([key, value]) => ({ key, value })).sort((a, b) => b.value - a.value)
+    return [...map.entries()].map(([key, value]) => ({ key, value: toView(value) })).sort((a, b) => b.value - a.value)
   })()
 
   const exportReport = () =>
@@ -55,7 +55,7 @@ export function Reports() {
       <div className="page-head">
         <div>
           <h1>Reports</h1>
-          <p className="muted small">All amounts in {base}, using the rate saved with each payment.</p>
+          <p className="muted small">All amounts in {view.currency}, using the rate saved with each payment{view.showingAlt && view.altRate ? ` and 1 ${base} = ${view.altRate.toLocaleString()} ${view.currency}` : ''}.</p>
         </div>
         <div className="head-actions">
           <div className="segmented" role="tablist" aria-label="Report period">
@@ -76,19 +76,19 @@ export function Reports() {
       <div className="stats four">
         <div className="stat">
           <span>Money in</span>
-          <strong>{formatMoney(income, base)}</strong>
+          <strong>{money(income)}</strong>
         </div>
         <div className="stat">
           <span>Money out</span>
-          <strong>{formatMoney(spend, base)}</strong>
+          <strong>{money(spend)}</strong>
         </div>
         <div className="stat">
           <span>Profit</span>
-          <strong className={income - spend < 0 ? 'bad-text' : ''}>{formatMoney(income - spend, base)}</strong>
+          <strong className={income - spend < 0 ? 'bad-text' : ''}>{money(income - spend)}</strong>
         </div>
         <div className="stat">
           <span>Owed to you now</span>
-          <strong>{formatMoney(totalOutstanding(data), base)}</strong>
+          <strong>{money(totalOutstanding(data))}</strong>
         </div>
       </div>
 
@@ -100,10 +100,10 @@ export function Reports() {
         <MonthColumns
           title="Money in and out by month"
           months={months.map((m) => monthLabel(m))}
-          currency={base}
+          currency={view.currency}
           series={[
-            { label: 'Money in', color: 'var(--series-1)', values: incomeByMonth },
-            { label: 'Money out', color: 'var(--series-2)', values: spendByMonth },
+            { label: 'Money in', color: 'var(--series-1)', values: incomeByMonth.map(toView) },
+            { label: 'Money out', color: 'var(--series-2)', values: spendByMonth.map(toView) },
           ]}
         />
       </section>
@@ -111,23 +111,23 @@ export function Reports() {
       <div className="two-col">
         <section className="card">
           <h2>Top clients</h2>
-          <BarList rows={byClient} currency={base} empty="No payments in this period." />
+          <BarList rows={byClient} currency={view.currency} empty="No payments in this period." />
         </section>
         <section className="card">
           <h2>By service</h2>
-          <BarList rows={byService} currency={base} empty="No payments linked to orders yet." />
+          <BarList rows={byService} currency={view.currency} empty="No payments linked to orders yet." />
         </section>
         <section className="card">
           <h2>By platform</h2>
-          <BarList rows={byPlatform} currency={base} empty="No payments in this period." />
+          <BarList rows={byPlatform} currency={view.currency} empty="No payments in this period." />
         </section>
         <section className="card">
           <h2>By payment method</h2>
-          <BarList rows={byMethod} currency={base} empty="No payments in this period." />
+          <BarList rows={byMethod} currency={view.currency} empty="No payments in this period." />
         </section>
         <section className="card">
           <h2>Where money goes</h2>
-          <BarList rows={spendByCat} currency={base} empty="No expenses in this period." out />
+          <BarList rows={spendByCat} currency={view.currency} empty="No expenses in this period." out />
         </section>
       </div>
     </div>

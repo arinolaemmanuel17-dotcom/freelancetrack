@@ -304,3 +304,18 @@ input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--accent);
   .page-head > .primary, .head-actions > .primary { flex: 1; }
   .barlist li { grid-template-columns: minmax(70px, 1fr) minmax(40px, 1fr) 92px; }
 }
+
+/* Money amount box with − / + buttons */
+.money-input { display: flex; align-items: stretch; gap: 0; }
+.money-input input { border-radius: 9px 0 0 9px; font-variant-numeric: tabular-nums; }
+.money-input .step-btn { padding: 0 14px; border-radius: 0; border-left: 0; font-size: 18px; font-weight: 600; color: var(--text); min-width: 44px; }
+.money-input .step-btn:last-child { border-radius: 0 9px 9px 0; }
+.money-input .step-btn:hover { background: var(--surface-2); }
+.currency-switch { flex: none; }
+.currency-switch button { white-space: nowrap; gap: 4px; }
+.kpi-value, .stat strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 520px) {
+  .cur-code { display: none; }
+  .currency-switch button { padding: 6px 10px; font-weight: 600; }
+  .kpi:not(.hero) .kpi-value, .stat strong { font-size: 18px; }
+}

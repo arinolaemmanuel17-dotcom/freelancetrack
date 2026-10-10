@@ -10,7 +10,7 @@ import { clientName, formatMoney, lastMonths, monthLabel, monthOf, orderTitle, p
 type Tab = 'payments' | 'expenses'
 
 export function Money({ go, initialId, initialTab }: { go: Go; initialId?: string | null; initialTab?: Tab }) {
-  const { data } = useStore()
+  const { data, money } = useStore()
   const base = data.settings.baseCurrency
   const [tab, setTab] = useState<Tab>(initialTab ?? 'payments')
   const [month, setMonth] = useState<string | 'all'>(monthOf(today()))
@@ -67,19 +67,19 @@ export function Money({ go, initialId, initialTab }: { go: Go; initialId?: strin
       <div className="stats four">
         <div className="stat">
           <span>Money in</span>
-          <strong>{formatMoney(received, base)}</strong>
+          <strong>{money(received)}</strong>
         </div>
         <div className="stat">
           <span>Money out</span>
-          <strong>{formatMoney(spent, base)}</strong>
+          <strong>{money(spent)}</strong>
         </div>
         <div className="stat">
           <span>Profit</span>
-          <strong className={received - spent < 0 ? 'bad-text' : ''}>{formatMoney(received - spent, base)}</strong>
+          <strong className={received - spent < 0 ? 'bad-text' : ''}>{money(received - spent)}</strong>
         </div>
         <div className="stat">
           <span>Expected, not in yet</span>
-          <strong>{formatMoney(expected, base)}</strong>
+          <strong>{money(expected)}</strong>
         </div>
       </div>
 
@@ -111,7 +111,7 @@ export function Money({ go, initialId, initialTab }: { go: Go; initialId?: strin
                 <span data-label="Status"><Badge tone={p.status === 'Received' ? 'good' : 'warn'}>{p.status}</Badge></span>
                 <span className="right num strong">
                   {formatMoney(p.amount, p.currency)}
-                  {p.currency !== base && <span className="muted small block">{formatMoney(toBase(p.amount, p.rateToBase), base)}</span>}
+                  {p.currency !== base && <span className="muted small block">{money(toBase(p.amount, p.rateToBase))}</span>}
                 </span>
               </div>
             ))}
@@ -135,7 +135,7 @@ export function Money({ go, initialId, initialTab }: { go: Go; initialId?: strin
               <span data-label="Category"><Badge tone="muted">{e.category || 'No category'}</Badge></span>
               <span className="right num strong">
                 −{formatMoney(e.amount, e.currency)}
-                {e.currency !== base && <span className="muted small block">{formatMoney(toBase(e.amount, e.rateToBase), base)}</span>}
+                {e.currency !== base && <span className="muted small block">{money(toBase(e.amount, e.rateToBase))}</span>}
               </span>
             </div>
           ))}

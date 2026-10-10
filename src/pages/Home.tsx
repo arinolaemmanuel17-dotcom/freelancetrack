@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useStore } from '../store'
-import { Empty } from '../components/ui'
+import { Empty, MoneyInput } from '../components/ui'
 import { MonthColumns, BarList } from '../components/Chart'
 import { Icon } from '../components/Icon'
 import type { Go } from '../App'
@@ -9,7 +9,6 @@ import {
   checkinStreak,
   clientName,
   daysBetween,
-  formatMoney,
   greeting,
   groupReceived,
   lastMonths,
@@ -24,7 +23,7 @@ import {
 import { StatusPill } from './Orders'
 
 export function Home({ go }: { go: Go }) {
-  const { data, resetAll, loadExamples, mode, updateSettings, account } = useStore()
+  const { data, resetAll, loadExamples, mode, updateSettings, account, money, view, toView } = useStore()
   const now = today()
   const month = monthOf(now)
   const base = data.settings.baseCurrency
@@ -121,7 +120,7 @@ export function Home({ go }: { go: Go }) {
           <div className="kpis">
             <div className="kpi hero">
               <span className="kpi-label">Money in this month</span>
-              <strong className="kpi-value">{formatMoney(inThis, base)}</strong>
+              <strong className="kpi-value">{money(inThis)}</strong>
               {delta !== null && (
                 <span className={delta >= 0 ? 'delta up' : 'delta down'}>
                   {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}% vs {monthLabel(previousMonth(month))}
@@ -130,15 +129,15 @@ export function Home({ go }: { go: Go }) {
             </div>
             <div className="kpi">
               <span className="kpi-label">Money out</span>
-              <strong className="kpi-value">{formatMoney(outThis, base)}</strong>
+              <strong className="kpi-value">{money(outThis)}</strong>
             </div>
             <div className="kpi">
               <span className="kpi-label">Profit this month</span>
-              <strong className={inThis - outThis < 0 ? 'kpi-value bad-text' : 'kpi-value'}>{formatMoney(inThis - outThis, base)}</strong>
+              <strong className={inThis - outThis < 0 ? 'kpi-value bad-text' : 'kpi-value'}>{money(inThis - outThis)}</strong>
             </div>
             <div className="kpi clickable" onClick={() => go('orders')}>
               <span className="kpi-label">Owed to you</span>
-              <strong className="kpi-value">{formatMoney(owed, base)}</strong>
+              <strong className="kpi-value">{money(owed)}</strong>
             </div>
           </div>
 
@@ -153,11 +152,11 @@ export function Home({ go }: { go: Go }) {
               <MonthColumns
                 title="Money in and out, last 6 months"
                 months={months.map((m) => monthLabel(m))}
-                currency={base}
+                currency={view.currency}
                 height={200}
                 series={[
-                  { label: 'Money in', color: 'var(--series-1)', values: months.map((m) => receivedIn(data, m)) },
-                  { label: 'Money out', color: 'var(--series-2)', values: months.map((m) => spentIn(data, m)) },
+                  { label: 'Money in', color: 'var(--series-1)', values: months.map((m) => toView(receivedIn(data, m))) },
+                  { label: 'Money out', color: 'var(--series-2)', values: months.map((m) => toView(spentIn(data, m))) },
                 ]}
               />
             </section>
@@ -177,7 +176,7 @@ export function Home({ go }: { go: Go }) {
                 {editingGoal || goal === 0 ? (
                   editingGoal ? (
                     <form className="inline-add" onSubmit={saveGoal}>
-                      <input id="goal-input" type="number" inputMode="decimal" min="0" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} placeholder={`Amount in ${base}`} autoFocus aria-label="Monthly goal" />
+                      <MoneyInput id="goal-input" value={goalInput} onChange={setGoalInput} step={data.settings.amountStep * 10} placeholder={`Amount in ${base}`} autoFocus label="Monthly goal" />
                       <button className="primary" type="submit">Save</button>
                     </form>
                   ) : (
@@ -191,12 +190,12 @@ export function Home({ go }: { go: Go }) {
                 ) : (
                   <>
                     <p className="goal-line">
-                      <strong className="num">{formatMoney(inThis, base)}</strong> <span className="muted">of {formatMoney(goal, base)}</span>
+                      <strong className="num">{money(inThis)}</strong> <span className="muted">of {money(goal)}</span>
                     </p>
                     <span className="meter big" role="progressbar" aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100} aria-label="Monthly goal progress">
                       <span style={{ width: `${goalPct}%` }} />
                     </span>
-                    <p className="muted small">{goalPct >= 100 ? 'Goal reached. Nice work.' : `${formatMoney(Math.max(0, goal - inThis), base)} to go this month.`}</p>
+                    <p className="muted small">{goalPct >= 100 ? 'Goal reached. Nice work.' : `${money(Math.max(0, goal - inThis))} to go this month.`}</p>
                   </>
                 )}
               </section>
@@ -253,7 +252,7 @@ export function Home({ go }: { go: Go }) {
                   All clients
                 </button>
               </div>
-              {topClients.length === 0 ? <Empty>No payments yet this year.</Empty> : <BarList rows={topClients} currency={base} empty="" />}
+              {topClients.length === 0 ? <Empty>No payments yet this year.</Empty> : <BarList rows={topClients.map((r) => ({ ...r, value: toView(r.value) }))} currency={view.currency} empty="" />}
             </section>
           </div>
         </>

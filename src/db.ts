@@ -79,6 +79,9 @@ const toSettings = (r: Row | null): Settings =>
         methods: (r.methods as string[]) ?? DEFAULT_SETTINGS.methods,
         categories: (r.categories as string[]) ?? DEFAULT_SETTINGS.categories,
         monthlyGoal: num(r.monthly_goal) ?? 0,
+        amountStep: num(r.amount_step) ?? DEFAULT_SETTINGS.amountStep,
+        altCurrency: str(r.alt_currency),
+        altRate: num(r.alt_rate) ?? 0,
         outreachGapDays: num(r.outreach_gap_days) ?? DEFAULT_SETTINGS.outreachGapDays,
       }
     : DEFAULT_SETTINGS
@@ -195,6 +198,9 @@ export async function upsertSettings(userId: string, s: Settings) {
       methods: s.methods,
       categories: s.categories,
       monthly_goal: s.monthlyGoal,
+      amount_step: s.amountStep,
+      alt_currency: s.altCurrency,
+      alt_rate: s.altRate,
       outreach_gap_days: s.outreachGapDays,
       updated_at: new Date().toISOString(),
     }),

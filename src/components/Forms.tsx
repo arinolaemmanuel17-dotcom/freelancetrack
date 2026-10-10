@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { useStore } from '../store'
-import { ConfirmButton, Field, Modal, Options } from './ui'
+import { ConfirmButton, Field, Modal, MoneyInput, Options } from './ui'
 import { ORDER_STATUSES, type Client, type Expense, type Order, type OrderStatus, type Payment, type PaymentStatus } from '../types'
-import { clientName, similarClients, today } from '../utils'
+import { clientName, formatMoney, rateFor, similarClients, today } from '../utils'
+import type { AppData } from '../types'
 
 function Actions({ onClose, onDelete, deleteQuestion }: { onClose: () => void; onDelete?: () => void; deleteQuestion?: string }) {
   return (
@@ -16,6 +17,27 @@ function Actions({ onClose, onDelete, deleteQuestion }: { onClose: () => void; o
         Save
       </button>
     </div>
+  )
+}
+
+
+// Suggested "1 main = ? other" rate: the saved second-currency rate, else the latest one used.
+function suggestPerBase(data: AppData, currency: string): string {
+  const s = data.settings
+  if (currency === s.baseCurrency) return ''
+  if (currency === s.altCurrency && s.altRate > 0) return String(s.altRate)
+  const r = rateFor(data, currency)
+  return r ? String(Math.round((1 / r) * 10000) / 10000) : ''
+}
+
+function RateField({ id, base, currency, perBase, setPerBase, amount }: { id: string; base: string; currency: string; perBase: string; setPerBase: (v: string) => void; amount: string }) {
+  const n = Number(perBase)
+  const a = Number(amount)
+  return (
+    <Field label={`Exchange rate that day: 1 ${base} = how many ${currency}?`} wide>
+      <input id={id} type="number" inputMode="decimal" min="0" step="any" value={perBase} onChange={(e) => setPerBase(e.target.value)} placeholder={`e.g. 1500`} required />
+      {n > 0 && a > 0 && <span className="muted small">That's about {formatMoney(a / n, base)}.</span>}
+    </Field>
   )
 }
 
@@ -212,7 +234,7 @@ export function OrderForm({
           </select>
         </Field>
         <Field label="Price">
-          <input id="order-price" type="number" inputMode="decimal" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Leave empty if not agreed" />
+          <MoneyInput id="order-price" value={price} onChange={setPrice} step={s.amountStep} placeholder="Leave empty if not agreed" />
         </Field>
         <Field label="Currency">
           <select id="order-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
@@ -270,7 +292,11 @@ export function PaymentForm({
   const [date, setDate] = useState(payment?.date ?? today())
   const [amount, setAmount] = useState(payment ? String(payment.amount) : prefill?.amount ? String(prefill.amount) : '')
   const [currency, setCurrency] = useState(payment?.currency ?? prefill?.currency ?? base)
-  const [rate, setRate] = useState(payment && payment.currency !== base ? String(payment.rateToBase) : '')
+  const [perBase, setPerBase] = useState(() =>
+    payment && payment.currency !== base && payment.rateToBase > 0
+      ? String(Math.round((1 / payment.rateToBase) * 10000) / 10000)
+      : suggestPerBase(data, payment?.currency ?? prefill?.currency ?? base),
+  )
   const [method, setMethod] = useState(payment?.method ?? data.settings.methods[0] ?? '')
   const [status, setStatus] = useState<PaymentStatus>(payment?.status ?? 'Received')
   const [notes, setNotes] = useState(payment?.notes ?? '')
@@ -288,7 +314,7 @@ export function PaymentForm({
       date,
       amount: amt,
       currency,
-      rateToBase: foreign ? Number(rate) || 0 : 1,
+      rateToBase: foreign && Number(perBase) > 0 ? 1 / Number(perBase) : foreign ? 0 : 1,
       method,
       status,
       notes: notes.trim(),
@@ -306,7 +332,10 @@ export function PaymentForm({
             onChange={(e) => {
               setOrderId(e.target.value)
               const o = data.orders.find((x) => x.id === e.target.value)
-              if (o && !payment) setCurrency(o.currency)
+              if (o && !payment) {
+                setCurrency(o.currency)
+                setPerBase(suggestPerBase(data, o.currency))
+              }
             }}
           >
             <option value="">No order</option>
@@ -332,18 +361,14 @@ export function PaymentForm({
           </Field>
         )}
         <Field label="Amount *">
-          <input id="pay-amount" type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required autoFocus />
+          <MoneyInput id="pay-amount" value={amount} onChange={setAmount} step={data.settings.amountStep} required autoFocus />
         </Field>
         <Field label="Currency">
-          <select id="pay-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+          <select id="pay-currency" value={currency} onChange={(e) => { setCurrency(e.target.value); setPerBase(suggestPerBase(data, e.target.value)) }}>
             <Options values={data.settings.currencies} />
           </select>
         </Field>
-        {foreign && (
-          <Field label={`Rate that day (${base} per 1 ${currency})`} wide>
-            <input id="pay-rate" type="number" inputMode="decimal" min="0" step="any" value={rate} onChange={(e) => setRate(e.target.value)} required />
-          </Field>
-        )}
+        {foreign && <RateField id="pay-rate" base={base} currency={currency} perBase={perBase} setPerBase={setPerBase} amount={amount} />}
         <Field label="Date">
           <input id="pay-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
         </Field>
@@ -387,7 +412,11 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
   const [date, setDate] = useState(expense?.date ?? today())
   const [amount, setAmount] = useState(expense ? String(expense.amount) : '')
   const [currency, setCurrency] = useState(expense?.currency ?? base)
-  const [rate, setRate] = useState(expense && expense.currency !== base ? String(expense.rateToBase) : '')
+  const [perBase, setPerBase] = useState(() =>
+    expense && expense.currency !== base && expense.rateToBase > 0
+      ? String(Math.round((1 / expense.rateToBase) * 10000) / 10000)
+      : suggestPerBase(data, expense?.currency ?? base),
+  )
   const [category, setCategory] = useState(expense?.category ?? data.settings.categories[0] ?? '')
   const [method, setMethod] = useState(expense?.method ?? data.settings.methods[0] ?? '')
   const [notes, setNotes] = useState(expense?.notes ?? '')
@@ -405,7 +434,7 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
       date,
       amount: amt,
       currency,
-      rateToBase: foreign ? Number(rate) || 0 : 1,
+      rateToBase: foreign && Number(perBase) > 0 ? 1 / Number(perBase) : foreign ? 0 : 1,
       category,
       method,
       notes: notes.trim(),
@@ -417,18 +446,14 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
     <Modal title={expense ? 'Edit expense' : 'Add an expense'} onClose={onClose}>
       <form onSubmit={submit} className="form">
         <Field label="Amount *">
-          <input id="exp-amount" type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required autoFocus />
+          <MoneyInput id="exp-amount" value={amount} onChange={setAmount} step={data.settings.amountStep} required autoFocus />
         </Field>
         <Field label="Currency">
-          <select id="exp-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+          <select id="exp-currency" value={currency} onChange={(e) => { setCurrency(e.target.value); setPerBase(suggestPerBase(data, e.target.value)) }}>
             <Options values={data.settings.currencies} />
           </select>
         </Field>
-        {foreign && (
-          <Field label={`Rate that day (${base} per 1 ${currency})`} wide>
-            <input id="exp-rate" type="number" inputMode="decimal" min="0" step="any" value={rate} onChange={(e) => setRate(e.target.value)} required />
-          </Field>
-        )}
+        {foreign && <RateField id="exp-rate" base={base} currency={currency} perBase={perBase} setPerBase={setPerBase} amount={amount} />}
         <Field label="Category">
           <select id="exp-category" value={category} onChange={(e) => setCategory(e.target.value)}>
             <Options values={data.settings.categories} />

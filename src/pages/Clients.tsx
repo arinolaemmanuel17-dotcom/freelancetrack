@@ -10,11 +10,10 @@ import { StatusPill } from './Orders'
 type Sort = 'name' | 'paid' | 'contact'
 
 export function Clients({ go, initialId }: { go: Go; initialId?: string | null }) {
-  const { data, markContact } = useStore()
+  const { data, markContact, money } = useStore()
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<Sort>('name')
   const [adding, setAdding] = useState(initialId === 'new')
-  const base = data.settings.baseCurrency
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -75,8 +74,8 @@ export function Clients({ go, initialId }: { go: Go; initialId?: string | null }
                   </span>
                 </span>
                 <span data-label="Open">{st.openOrders > 0 ? <Badge tone="good">{st.openOrders} open</Badge> : <span className="muted">None</span>}</span>
-                <span className="right num" data-label="Paid you">{formatMoney(st.received, base)}</span>
-                <span className="right num" data-label="Owes you">{st.outstanding > 0 ? formatMoney(st.outstanding, base) : '–'}</span>
+                <span className="right num" data-label="Paid you">{money(st.received)}</span>
+                <span className="right num" data-label="Owes you">{st.outstanding > 0 ? money(st.outstanding) : '–'}</span>
                 <span className="muted small" data-label="Last contact">
                   {gap === null ? 'Never' : gap === 0 ? 'Today' : `${gap} days ago`}
                 </span>
@@ -103,12 +102,11 @@ export function Clients({ go, initialId }: { go: Go; initialId?: string | null }
 }
 
 export function ClientDetail({ go, id }: { go: Go; id: string }) {
-  const { data, markContact } = useStore()
+  const { data, markContact, money } = useStore()
   const [editing, setEditing] = useState(false)
   const [newOrder, setNewOrder] = useState(false)
   const [newPayment, setNewPayment] = useState(false)
   const client = data.clients.find((c) => c.id === id)
-  const base = data.settings.baseCurrency
 
   if (!client) {
     return (
@@ -154,11 +152,11 @@ export function ClientDetail({ go, id }: { go: Go; id: string }) {
       <div className="stats">
         <div className="stat">
           <span>Paid you</span>
-          <strong>{formatMoney(st.received, base)}</strong>
+          <strong>{money(st.received)}</strong>
         </div>
         <div className="stat">
           <span>Still owes you</span>
-          <strong>{formatMoney(st.outstanding, base)}</strong>
+          <strong>{money(st.outstanding)}</strong>
         </div>
         <div className="stat">
           <span>Orders</span>

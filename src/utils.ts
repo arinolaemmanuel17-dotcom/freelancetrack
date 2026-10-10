@@ -26,7 +26,14 @@ export function monthOf(date: string): string {
 
 export function formatMoney(amount: number, currency: string): string {
   try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount)
+    const whole = Math.abs(amount - Math.round(amount)) < 0.005
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'narrowSymbol', // ₦ instead of "NGN"
+      minimumFractionDigits: whole ? 0 : 2,
+      maximumFractionDigits: whole ? 0 : 2,
+    }).format(whole ? Math.round(amount) : amount)
   } catch {
     return `${currency} ${amount.toFixed(2)}`
   }
@@ -294,7 +301,7 @@ export function similarClients(data: AppData, name: string, exceptId?: string): 
 
 export function compactMoney(amount: number, currency: string): string {
   try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(amount)
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency, currencyDisplay: 'narrowSymbol', notation: 'compact', maximumFractionDigits: 1 }).format(amount)
   } catch {
     return `${currency} ${Math.round(amount)}`
   }
@@ -308,4 +315,21 @@ export function greeting(): string {
 export function initials(name: string): string {
   const parts = name.replace(/^example:\s*/i, '').trim().split(/\s+/)
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?'
+}
+
+// How many units of the second currency make 1 unit of the main currency
+// (e.g. 1500 for USD -> NGN). Uses the saved rate, else the latest payment's rate.
+export function altRate(data: AppData): number | null {
+  const s = data.settings
+  if (!s.altCurrency || s.altCurrency === s.baseCurrency) return null
+  if (s.altRate > 0) return s.altRate
+  const r = rateFor(data, s.altCurrency)
+  return r && r > 0 ? 1 / r : null
+}
+
+// "1 USD = 1,500 NGN" style text for a rate stored as base-per-unit.
+export function rateText(base: string, currency: string, rateToBase: number): string {
+  if (!rateToBase) return ''
+  const per = 1 / rateToBase
+  return `1 ${base} = ${per.toLocaleString(undefined, { maximumFractionDigits: per < 10 ? 4 : 2 })} ${currency}`
 }

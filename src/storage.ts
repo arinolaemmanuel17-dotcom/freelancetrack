@@ -11,6 +11,9 @@ export const DEFAULT_SETTINGS: Settings = {
   methods: ['Bank', 'Cash', 'Card', 'Other'],
   categories: ['Fees', 'Data', 'Transport', 'Software', 'Other'],
   monthlyGoal: 0,
+  amountStep: 10,
+  altCurrency: '',
+  altRate: 0,
   outreachGapDays: 3,
 }
 
@@ -72,6 +75,8 @@ export function exampleData(): AppData {
       ...DEFAULT_SETTINGS,
       services: ['Logo design', 'Website copy', 'Consulting call', 'Social media pack', 'Other'],
       monthlyGoal: 1500,
+      altCurrency: 'NGN',
+      altRate: 1500,
     },
     clients: [
       { id: 'ex_c1', name: 'Example: Lagos Bakery', contact: 'hello@example.com', platform: 'Direct', notes: 'Likes weekly updates', lastContact: d(-1), createdAt: d(-160) },

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { AppData, Client, DayEntry, Expense, Order, Payment, Settings } from './types'
 import { EMPTY_DATA, exampleData, loadData, newId, saveData } from './storage'
 import * as db from './db'
-import { today } from './utils'
+import { altRate, formatMoney, today } from './utils'
 
 export interface Account {
   userId: string
@@ -10,8 +10,21 @@ export interface Account {
   signOut: () => void
 }
 
+export interface MoneyView {
+  currency: string // currency totals are shown in right now
+  factor: number // multiply a main-currency amount by this to get the shown amount
+  showingAlt: boolean
+  canSwitch: boolean // a second currency and its rate are set
+  altCurrency: string
+  altRate: number | null // 1 main = altRate second
+}
+
 interface StoreValue {
   data: AppData
+  view: MoneyView
+  setShowAlt: (on: boolean) => void
+  money: (mainAmount: number) => string // format a main-currency total in the shown currency
+  toView: (mainAmount: number) => number
   mode: 'local' | 'cloud'
   status: 'loading' | 'ready'
   error: string | null
@@ -46,6 +59,21 @@ export function StoreProvider({ account, children }: { account?: Account | null;
   const [data, setData] = useState<AppData>(() => (cloud ? EMPTY_DATA : loadData()))
   const [status, setStatus] = useState<'loading' | 'ready'>(cloud ? 'loading' : 'ready')
   const [error, setError] = useState<string | null>(null)
+  const [showAlt, setShowAltState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ft-show-alt') === '1'
+    } catch {
+      return false
+    }
+  })
+  const setShowAlt = useCallback((on: boolean) => {
+    setShowAltState(on)
+    try {
+      localStorage.setItem('ft-show-alt', on ? '1' : '0')
+    } catch {
+      // Remembering the choice is optional.
+    }
+  }, [])
   const dataRef = useRef(data)
   const queueRef = useRef<Promise<void>>(Promise.resolve())
   useEffect(() => {
@@ -94,8 +122,24 @@ export function StoreProvider({ account, children }: { account?: Account | null;
       })
     }
 
+    const ar = altRate(data)
+    const canSwitch = ar !== null
+    const showingAlt = canSwitch && showAlt
+    const view: MoneyView = {
+      currency: showingAlt ? data.settings.altCurrency : data.settings.baseCurrency,
+      factor: showingAlt && ar ? ar : 1,
+      showingAlt,
+      canSwitch,
+      altCurrency: data.settings.altCurrency,
+      altRate: ar,
+    }
+
     return {
       data,
+      view,
+      setShowAlt,
+      money: (x: number) => formatMoney(x * view.factor, view.currency),
+      toView: (x: number) => x * view.factor,
       mode: cloud ? 'cloud' : 'local',
       status,
       error,
@@ -267,7 +311,7 @@ export function StoreProvider({ account, children }: { account?: Account | null;
         if (!cloud) setData(exampleData())
       },
     }
-  }, [account, cloud, data, error, reload, status])
+  }, [account, cloud, data, error, reload, status, showAlt, setShowAlt])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

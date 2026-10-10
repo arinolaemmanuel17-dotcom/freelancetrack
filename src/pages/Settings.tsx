@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
 import { useStore } from '../store'
-import { ConfirmButton, Field } from '../components/ui'
+import { ConfirmButton, Field, MoneyInput } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { DEFAULT_SETTINGS } from '../storage'
 import { downloadCsv, today } from '../utils'
@@ -22,6 +22,9 @@ export function Settings() {
   const [methods, setMethods] = useState(s.methods.join(', '))
   const [categories, setCategories] = useState(s.categories.join(', '))
   const [goal, setGoal] = useState(s.monthlyGoal ? String(s.monthlyGoal) : '')
+  const [step, setStep] = useState(String(s.amountStep))
+  const [alt, setAlt] = useState(s.altCurrency)
+  const [altRateIn, setAltRateIn] = useState(s.altRate ? String(s.altRate) : '')
   const [gap, setGap] = useState(String(s.outreachGapDays))
   const [message, setMessage] = useState('')
 
@@ -37,6 +40,9 @@ export function Settings() {
       methods: splitList(methods),
       categories: splitList(categories),
       monthlyGoal: Math.max(0, Number(goal) || 0),
+      amountStep: Number(step) > 0 ? Number(step) : 10,
+      altCurrency: /^[A-Z]{3}$/.test(alt.trim().toUpperCase()) && alt.trim().toUpperCase() !== baseCode ? alt.trim().toUpperCase() : '',
+      altRate: Math.max(0, Number(altRateIn) || 0),
       outreachGapDays: Math.max(1, Number(gap) || 3),
     })
     setMessage('Settings saved.')
@@ -100,7 +106,22 @@ export function Settings() {
             <input id="set-base" value={base} onChange={(e) => setBase(e.target.value)} maxLength={3} />
           </Field>
           <Field label="Monthly income goal">
-            <input id="set-goal" type="number" inputMode="decimal" min="0" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="0 = no goal" />
+            <MoneyInput id="set-goal" value={goal} onChange={setGoal} step={(Number(step) || 10) * 10} placeholder="0 = no goal" />
+          </Field>
+          <Field label="Step for the + and − buttons on amounts">
+            <select id="set-step" value={step} onChange={(e) => setStep(e.target.value)}>
+              {['1', '5', '10', '50', '100', '500', '1000', '5000'].map((v) => (
+                <option key={v} value={v}>
+                  {Number(v).toLocaleString()}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Second currency to view totals in (e.g. NGN)">
+            <input id="set-alt" value={alt} onChange={(e) => setAlt(e.target.value)} maxLength={3} placeholder="Leave empty for none" />
+          </Field>
+          <Field label={`Rate: 1 ${base.toUpperCase() || 'USD'} = how many ${alt.toUpperCase() || '…'}?`}>
+            <input id="set-alt-rate" type="number" inputMode="decimal" min="0" step="any" value={altRateIn} onChange={(e) => setAltRateIn(e.target.value)} placeholder="Empty = use your latest payment's rate" />
           </Field>
           <Field label="Currencies you get paid in (comma separated, e.g. USD, NGN)" wide>
             <input id="set-currencies" value={currencies} onChange={(e) => setCurrencies(e.target.value)} />
