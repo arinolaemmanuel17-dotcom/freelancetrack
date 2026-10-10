@@ -319,3 +319,19 @@ input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--accent);
   .currency-switch button { padding: 6px 10px; font-weight: 600; }
   .kpi:not(.hero) .kpi-value, .stat strong { font-size: 18px; }
 }
+
+/* Files */
+.file-btn.small-btn { padding: 6px 10px; font-size: 13px; }
+.file-btn.disabled { opacity: 0.6; cursor: progress; }
+.file-icon { flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; background: var(--info-bg); color: var(--info); font-size: 10px; font-weight: 700; letter-spacing: 0.03em; }
+.file-name { text-align: left; overflow-wrap: anywhere; color: var(--text); font-weight: 600; }
+
+/* Add-new inline field and first-time setup */
+.add-inline { display: flex; gap: 6px; align-items: center; }
+.add-inline input { flex: 1; }
+.setup { width: min(620px, 100%); display: flex; flex-direction: column; gap: 6px; }
+.setup-title { font-size: 22px; }
+.setup-form { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
+.setup-form fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.setup-form legend { font-weight: 600; margin-bottom: 6px; padding: 0; }
+.setup-form p { margin: 0; }

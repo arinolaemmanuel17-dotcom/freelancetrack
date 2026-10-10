@@ -179,7 +179,15 @@ export function StoreProvider({ account, children }: { account?: Account | null;
             })),
           }
         })
-        persist('Deleting the client', () => db.remove('clients', id))
+        const orderIds = dataRef.current.orders.filter((o) => o.clientId === id).map((o) => o.id)
+        persist('Deleting the client', async () => {
+          await db.remove('clients', id)
+          // Clean up the client's uploaded files too (best effort).
+          await Promise.allSettled([
+            db.removeFolder(`${userId}/clients/${id}`),
+            ...orderIds.map((oid) => db.removeFolder(`${userId}/orders/${oid}`)),
+          ])
+        })
       },
 
       markContact(clientId, date = today()) {
@@ -222,7 +230,10 @@ export function StoreProvider({ account, children }: { account?: Account | null;
           payments: d.payments.filter((p) => p.orderId !== id),
           expenses: d.expenses.map((e) => (e.orderId === id ? { ...e, orderId: null } : e)),
         }))
-        persist('Deleting the order', () => db.remove('orders', id))
+        persist('Deleting the order', async () => {
+          await db.remove('orders', id)
+          await Promise.allSettled([db.removeFolder(`${userId}/orders/${id}`)])
+        })
       },
 
       savePayment(p) {

@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import { Badge, Empty } from '../components/ui'
 import { ExpenseForm, OrderForm, PaymentForm } from '../components/Forms'
 import { Icon } from '../components/Icon'
+import { FilesCard } from '../components/Files'
 import type { Go } from '../App'
 import { ORDER_STATUSES, OPEN_STATUSES, type Order, type OrderStatus } from '../types'
 import { clientName, daysBetween, formatMoney, orderBalance, orderReceived, today } from '../utils'
@@ -13,8 +14,7 @@ const TONE: Record<OrderStatus, 'good' | 'warn' | 'bad' | 'muted' | 'info'> = {
   Proposal: 'info',
   'Waiting on client': 'warn',
   Active: 'info',
-  Delivered: 'warn',
-  Paid: 'good',
+  Completed: 'good',
   'On hold': 'muted',
   Cancelled: 'bad',
 }
@@ -42,21 +42,21 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
   const now = today()
 
   const counts = useMemo(() => {
-    const open = data.orders.filter((o) => !['Paid', 'Cancelled'].includes(o.status))
+    const open = data.orders.filter((o) => !['Completed', 'Cancelled'].includes(o.status))
     return {
       open: open.length,
       overdue: open.filter((o) => o.dueDate && o.dueDate < now && OPEN_STATUSES.includes(o.status)).length,
-      unpaid: data.orders.filter((o) => o.status === 'Delivered').length,
+      unpaid: data.orders.filter((o) => o.status === 'Completed' && (orderBalance(data, o) ?? 0) > 0).length,
     }
-  }, [data.orders, now])
+  }, [data, now])
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return data.orders
       .filter((o) => {
-        if (view === 'open') return !['Paid', 'Cancelled'].includes(o.status)
+        if (view === 'open') return !['Completed', 'Cancelled'].includes(o.status)
         if (view === 'overdue') return !!o.dueDate && o.dueDate < now && OPEN_STATUSES.includes(o.status)
-        if (view === 'unpaid') return o.status === 'Delivered'
+        if (view === 'unpaid') return o.status === 'Completed' && (orderBalance(data, o) ?? 0) > 0
         if (view === 'all') return true
         return o.status === view
       })
@@ -67,7 +67,7 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
   const chips: { id: View; label: string; count?: number }[] = [
     { id: 'open', label: 'Open', count: counts.open },
     { id: 'overdue', label: 'Overdue', count: counts.overdue },
-    { id: 'unpaid', label: 'Delivered, not paid', count: counts.unpaid },
+    { id: 'unpaid', label: 'Completed, not paid', count: counts.unpaid },
     { id: 'all', label: 'All' },
   ]
 
@@ -315,12 +315,13 @@ export function OrderDetail({ go, id }: { go: Go; id: string }) {
         </section>
       </div>
 
-      {order.notes && (
+      <div className="two-col">
+        <FilesCard kind="orders" ownerId={order.id} hint="Attach briefs, drafts, final files or certificates for this job." />
         <section className="card">
           <h2>Notes</h2>
-          <p className="prewrap">{order.notes}</p>
+          {order.notes ? <p className="prewrap">{order.notes}</p> : <p className="muted small">No notes yet. Use Edit to add some.</p>}
         </section>
-      )}
+      </div>
 
       {editing && <OrderForm order={order} onClose={() => setEditing(false)} onDeleted={() => go('orders')} />}
       {paying && (

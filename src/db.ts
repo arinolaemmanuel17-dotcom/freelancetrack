@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { AppData, ChecklistItem, Client, DayEntry, Expense, Order, OrderStatus, Payment, PaymentStatus, Settings } from './types'
+import { normalizeStatus, type AppData, type ChecklistItem, type Client, type DayEntry, type Expense, type Order, type Payment, type PaymentStatus, type Settings } from './types'
 import { DEFAULT_SETTINGS } from './storage'
 
 // Maps between the app's camelCase records and the database's snake_case rows.
@@ -23,7 +23,7 @@ const toOrder = (r: Row): Order => ({
   clientId: str(r.client_id),
   title: str(r.title),
   service: str(r.service),
-  status: r.status as OrderStatus,
+  status: normalizeStatus(str(r.status)),
   platform: str(r.platform),
   price: num(r.price),
   currency: str(r.currency),
@@ -80,6 +80,7 @@ const toSettings = (r: Row | null): Settings =>
         categories: (r.categories as string[]) ?? DEFAULT_SETTINGS.categories,
         monthlyGoal: num(r.monthly_goal) ?? 0,
         amountStep: num(r.amount_step) ?? DEFAULT_SETTINGS.amountStep,
+        onboarded: r.onboarded === true,
         altCurrency: str(r.alt_currency),
         altRate: num(r.alt_rate) ?? 0,
         outreachGapDays: num(r.outreach_gap_days) ?? DEFAULT_SETTINGS.outreachGapDays,
@@ -199,6 +200,7 @@ export async function upsertSettings(userId: string, s: Settings) {
       categories: s.categories,
       monthly_goal: s.monthlyGoal,
       amount_step: s.amountStep,
+      onboarded: s.onboarded,
       alt_currency: s.altCurrency,
       alt_rate: s.altRate,
       outreach_gap_days: s.outreachGapDays,
@@ -228,4 +230,51 @@ export async function eraseAll(userId: string) {
   check(await supabase.from('expenses').delete().eq('user_id', userId))
   check(await supabase.from('day_entries').delete().eq('user_id', userId))
   check(await supabase.from('user_settings').delete().eq('user_id', userId))
+}
+
+// ---------- files (private bucket, one folder per user) ----------
+const BUCKET = 'client-files'
+
+export interface StoredFile {
+  path: string
+  name: string // shown name, without the upload-time prefix
+  size: number
+  createdAt: string
+}
+
+export async function listFiles(prefix: string): Promise<StoredFile[]> {
+  const { data, error } = await supabase.storage.from(BUCKET).list(prefix, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } })
+  if (error) throw new Error(error.message)
+  return (data ?? [])
+    .filter((f) => f.id) // folders have no id
+    .map((f) => ({
+      path: `${prefix}/${f.name}`,
+      name: f.name.replace(/^\d{10,}-/, ''),
+      size: Number((f.metadata as { size?: number } | null)?.size ?? 0),
+      createdAt: f.created_at ?? '',
+    }))
+}
+
+export async function uploadFile(prefix: string, file: File): Promise<void> {
+  const safe = file.name.replace(/[^\w.\- ]+/g, '_').slice(-120)
+  const { error } = await supabase.storage.from(BUCKET).upload(`${prefix}/${Date.now()}-${safe}`, file, { contentType: file.type || undefined, upsert: false })
+  if (error) throw new Error(error.message)
+}
+
+export async function fileLink(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 120)
+  if (error) throw new Error(error.message)
+  return data.signedUrl
+}
+
+export async function deleteFile(path: string): Promise<void> {
+  const { error } = await supabase.storage.from(BUCKET).remove([path])
+  if (error) throw new Error(error.message)
+}
+
+export async function removeFolder(prefix: string): Promise<void> {
+  const files = await listFiles(prefix)
+  if (!files.length) return
+  const { error } = await supabase.storage.from(BUCKET).remove(files.map((f) => f.path))
+  if (error) throw new Error(error.message)
 }

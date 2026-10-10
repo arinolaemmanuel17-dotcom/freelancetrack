@@ -88,10 +88,10 @@ export function attentionItems(data: AppData, now: string): Attention[] {
     if (open && (o.price === null || o.price === undefined)) {
       items.push({ id: `np-${o.id}`, level: 'low', text: `No price agreed: ${o.title}`, orderId: o.id })
     }
-    if (o.status === 'Delivered') {
-      const paid = data.payments.some((p) => p.orderId === o.id && p.status === 'Received')
-      if (!paid) {
-        items.push({ id: `up-${o.id}`, level: 'high', text: `Delivered but not paid: ${o.title}`, orderId: o.id })
+    if (o.status === 'Completed') {
+      const bal = orderBalance(data, o)
+      if (bal !== null && bal > 0) {
+        items.push({ id: `up-${o.id}`, level: 'high', text: `Completed but not fully paid: ${o.title} (${formatMoney(bal, o.currency)} left)`, orderId: o.id })
       }
     }
   }

@@ -3,8 +3,7 @@ export type OrderStatus =
   | 'Proposal'
   | 'Waiting on client'
   | 'Active'
-  | 'Delivered'
-  | 'Paid'
+  | 'Completed'
   | 'On hold'
   | 'Cancelled'
 
@@ -13,11 +12,16 @@ export const ORDER_STATUSES: OrderStatus[] = [
   'Proposal',
   'Waiting on client',
   'Active',
-  'Delivered',
-  'Paid',
+  'Completed',
   'On hold',
   'Cancelled',
 ]
+
+// Older records may still say Delivered or Paid; both now mean Completed.
+export function normalizeStatus(s: string): OrderStatus {
+  if (s === 'Delivered' || s === 'Paid') return 'Completed'
+  return (ORDER_STATUSES as string[]).includes(s) ? (s as OrderStatus) : 'Active'
+}
 
 export const OPEN_STATUSES: OrderStatus[] = ['Lead', 'Proposal', 'Waiting on client', 'Active', 'On hold']
 
@@ -102,6 +106,7 @@ export interface Settings {
   altCurrency: string // second currency to view totals in ('' = none)
   altRate: number // 1 base = altRate alt (e.g. 1 USD = 1500 NGN); 0 = use latest payment rate
   outreachGapDays: number
+  onboarded: boolean // finished (or skipped) the first-time setup
 }
 
 export interface AppData {

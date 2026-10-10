@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import { Badge, Empty } from '../components/ui'
 import { ClientForm, OrderForm, PaymentForm } from '../components/Forms'
 import { Icon } from '../components/Icon'
+import { FilesCard } from '../components/Files'
 import type { Go } from '../App'
 import { clientStats, daysBetween, formatMoney, initials, orderBalance, today } from '../utils'
 import { StatusPill } from './Orders'
@@ -165,12 +166,13 @@ export function ClientDetail({ go, id }: { go: Go; id: string }) {
         </div>
       </div>
 
-      {client.notes && (
+      <div className="two-col">
+        <FilesCard kind="clients" ownerId={client.id} hint="Upload this client's CV, contracts, IDs or certificates. Only you can see them." />
         <section className="card">
           <h2>Notes</h2>
-          <p className="prewrap">{client.notes}</p>
+          {client.notes ? <p className="prewrap">{client.notes}</p> : <p className="muted small">No notes yet. Use Edit to add some.</p>}
         </section>
-      )}
+      </div>
 
       <section className="card">
         <div className="card-head">

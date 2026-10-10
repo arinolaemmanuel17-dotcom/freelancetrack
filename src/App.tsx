@@ -16,6 +16,7 @@ import { QuickAdd, type QuickKind } from './components/QuickAdd'
 import { ClientForm, ExpenseForm, OrderForm, PaymentForm } from './components/Forms'
 import { Icon } from './components/Icon'
 import { CurrencySwitch } from './components/CurrencySwitch'
+import { SetupWelcome } from './components/Setup'
 import './App.css'
 
 export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings'
@@ -42,7 +43,7 @@ function Shell() {
   const [route, setRoute] = useState<Route>({ page: 'home', id: null, key: 0 })
   const [quick, setQuick] = useState<QuickKind | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
-  const { mode, status, error, dismissError, reload, account } = useStore()
+  const { data, mode, status, error, dismissError, reload, account } = useStore()
 
   const go: Go = (page, id = null) => {
     setMoreOpen(false)
@@ -151,6 +152,8 @@ function Shell() {
           </div>
         </div>
       )}
+
+      {mode === 'cloud' && status === 'ready' && !error && !data.settings.onboarded && <SetupWelcome />}
 
       {quick === 'client' && <ClientForm client={null} onClose={() => setQuick(null)} onSaved={(id) => go('client', id)} onOpenExisting={(id) => go('client', id)} />}
       {quick === 'order' && <OrderForm order={null} onClose={() => setQuick(null)} onSaved={(id) => go('order', id)} />}

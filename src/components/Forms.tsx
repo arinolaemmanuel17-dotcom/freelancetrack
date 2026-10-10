@@ -5,6 +5,85 @@ import { ORDER_STATUSES, type Client, type Expense, type Order, type OrderStatus
 import { clientName, formatMoney, rateFor, similarClients, today } from '../utils'
 import type { AppData } from '../types'
 
+type ListName = 'services' | 'platforms' | 'methods' | 'categories'
+const ADD = '__add__'
+
+// A dropdown for one of your lists, with "+ Add new…" at the bottom.
+// Anything you add is saved to your list, so it's there next time.
+export function ListSelect({
+  id,
+  list,
+  value,
+  onChange,
+  noun,
+  emptyLabel,
+}: {
+  id: string
+  list: ListName
+  value: string
+  onChange: (v: string) => void
+  noun: string
+  emptyLabel?: string
+}) {
+  const { data, updateSettings } = useStore()
+  const items = data.settings[list]
+  const [adding, setAdding] = useState(false)
+  const [text, setText] = useState('')
+  const options = value && !items.includes(value) ? [value, ...items] : items
+
+  const add = () => {
+    const v = text.trim()
+    if (!v) return
+    const existing = items.find((i) => i.toLowerCase() === v.toLowerCase())
+    if (!existing) updateSettings({ [list]: [...items, v] })
+    onChange(existing ?? v)
+    setAdding(false)
+    setText('')
+  }
+
+  if (adding) {
+    return (
+      <span className="add-inline">
+        <input
+          id={id}
+          autoFocus
+          value={text}
+          placeholder={`New ${noun}`}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              add()
+            }
+            if (e.key === 'Escape') {
+              e.nativeEvent.stopPropagation()
+              setAdding(false)
+            }
+          }}
+        />
+        <button type="button" className="primary small-btn" onClick={add}>
+          Add
+        </button>
+        <button type="button" className="ghost small-btn" onClick={() => setAdding(false)}>
+          Cancel
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <select id={id} value={value} onChange={(e) => (e.target.value === ADD ? setAdding(true) : onChange(e.target.value))}>
+      {emptyLabel !== undefined && <option value="">{emptyLabel}</option>}
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+      <option value={ADD}>+ Add new {noun}…</option>
+    </select>
+  )
+}
+
 function Actions({ onClose, onDelete, deleteQuestion }: { onClose: () => void; onDelete?: () => void; deleteQuestion?: string }) {
   return (
     <div className="actions">
@@ -96,10 +175,7 @@ export function ClientForm({
           <input id="client-contact" value={contact} onChange={(e) => setContact(e.target.value)} />
         </Field>
         <Field label="Where they came from">
-          <select id="client-platform" value={platform} onChange={(e) => setPlatform(e.target.value)}>
-            <option value="">Not set</option>
-            <Options values={data.settings.platforms} />
-          </select>
+          <ListSelect id="client-platform" list="platforms" noun="platform" emptyLabel="Not set" value={platform} onChange={setPlatform} />
         </Field>
         <Field label="Notes" wide>
           <textarea id="client-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -148,7 +224,7 @@ export function OrderForm({
   const [clientId, setClientId] = useState(initialClient)
   const [newClientName, setNewClientName] = useState('')
   const [title, setTitle] = useState(order?.title ?? '')
-  const [service, setService] = useState(order?.service ?? seed?.service ?? s.services[0] ?? '')
+  const [service, setService] = useState(order?.service ?? seed?.service ?? '')
   const [status, setStatus] = useState<OrderStatus>(order?.status ?? 'Active')
   const [platform, setPlatform] = useState(order?.platform ?? seed?.platform ?? '')
   const [price, setPrice] = useState(order?.price != null ? String(order.price) : '')
@@ -224,9 +300,7 @@ export function OrderForm({
           <input id="order-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Logo for new shop" required autoFocus={clientId !== NEW_CLIENT} />
         </Field>
         <Field label="Service">
-          <select id="order-service" value={service} onChange={(e) => setService(e.target.value)}>
-            <Options values={s.services.includes(service) || !service ? s.services : [service, ...s.services]} />
-          </select>
+          <ListSelect id="order-service" list="services" noun="service" emptyLabel={s.services.length ? 'Choose a service' : 'No services yet'} value={service} onChange={setService} />
         </Field>
         <Field label="Stage">
           <select id="order-status" value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)}>
@@ -248,10 +322,7 @@ export function OrderForm({
           <input id="order-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </Field>
         <Field label="Platform">
-          <select id="order-platform" value={platform} onChange={(e) => setPlatform(e.target.value)}>
-            <option value="">Not set</option>
-            <Options values={s.platforms} />
-          </select>
+          <ListSelect id="order-platform" list="platforms" noun="platform" emptyLabel="Not set" value={platform} onChange={setPlatform} />
         </Field>
         <span className="field-spacer" />
         <Field label="Notes" wide>
@@ -379,9 +450,7 @@ export function PaymentForm({
           </select>
         </Field>
         <Field label="Method">
-          <select id="pay-method" value={method} onChange={(e) => setMethod(e.target.value)}>
-            <Options values={data.settings.methods} />
-          </select>
+          <ListSelect id="pay-method" list="methods" noun="method" emptyLabel="Not set" value={method} onChange={setMethod} />
         </Field>
         <span className="field-spacer" />
         <Field label="Notes" wide>
@@ -455,17 +524,13 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
         </Field>
         {foreign && <RateField id="exp-rate" base={base} currency={currency} perBase={perBase} setPerBase={setPerBase} amount={amount} />}
         <Field label="Category">
-          <select id="exp-category" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <Options values={data.settings.categories} />
-          </select>
+          <ListSelect id="exp-category" list="categories" noun="category" emptyLabel="Not set" value={category} onChange={setCategory} />
         </Field>
         <Field label="Date">
           <input id="exp-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
         </Field>
         <Field label="Paid with">
-          <select id="exp-method" value={method} onChange={(e) => setMethod(e.target.value)}>
-            <Options values={data.settings.methods} />
-          </select>
+          <ListSelect id="exp-method" list="methods" noun="method" emptyLabel="Not set" value={method} onChange={setMethod} />
         </Field>
         <Field label="For an order? (optional)">
           <select id="exp-order" value={orderId} onChange={(e) => setOrderId(e.target.value)}>
