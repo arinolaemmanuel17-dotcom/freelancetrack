@@ -4,85 +4,156 @@ import { StoreProvider, useStore } from './store'
 import { supabase } from './supabase'
 import { AuthScreen, NewPasswordScreen } from './pages/AuthScreen'
 import { Home } from './pages/Home'
-import { Clients } from './pages/Clients'
-import { Orders } from './pages/Orders'
+import { ClientDetail, Clients } from './pages/Clients'
+import { OrderDetail, Orders } from './pages/Orders'
 import { Money } from './pages/Money'
+import { Reports } from './pages/Reports'
 import { DailyLog } from './pages/DailyLog'
 import { Settings } from './pages/Settings'
 import { Search } from './components/Search'
 import { Notifications } from './components/Notifications'
-import { QuickAdd } from './components/QuickAdd'
+import { QuickAdd, type QuickKind } from './components/QuickAdd'
+import { ClientForm, ExpenseForm, OrderForm, PaymentForm } from './components/Forms'
+import { Icon } from './components/Icon'
 import './App.css'
 
-export type Page = 'home' | 'clients' | 'orders' | 'money' | 'daily' | 'settings'
+export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings'
+export type Go = (page: Page, id?: string | null) => void
 
-const NAV: { id: Page; label: string }[] = [
-  { id: 'home', label: 'Home' },
-  { id: 'clients', label: 'Clients' },
-  { id: 'orders', label: 'Orders' },
-  { id: 'money', label: 'Money' },
-  { id: 'daily', label: 'Check-in' },
-  { id: 'settings', label: 'Settings' },
+const NAV: { id: Page; label: string; icon: string; also?: Page[] }[] = [
+  { id: 'home', label: 'Home', icon: 'home' },
+  { id: 'orders', label: 'Orders', icon: 'orders', also: ['order'] },
+  { id: 'clients', label: 'Clients', icon: 'clients', also: ['client'] },
+  { id: 'money', label: 'Money', icon: 'money' },
+  { id: 'reports', label: 'Reports', icon: 'reports' },
+  { id: 'daily', label: 'Check-in', icon: 'checkin' },
+  { id: 'settings', label: 'Settings', icon: 'settings' },
 ]
+const TABS: Page[] = ['home', 'orders', 'clients', 'money']
 
 interface Route {
   page: Page
-  id: string | null // record id, or 'new' to open a blank form
+  id: string | null
   key: number
 }
 
 function Shell() {
   const [route, setRoute] = useState<Route>({ page: 'home', id: null, key: 0 })
-  const { mode, status, error, dismissError, reload } = useStore()
+  const [quick, setQuick] = useState<QuickKind | null>(null)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const { mode, status, error, dismissError, reload, account } = useStore()
 
-  const go = (page: Page, id: string | null = null) =>
+  const go: Go = (page, id = null) => {
+    setMoreOpen(false)
     setRoute((r) => ({ page, id, key: r.key + 1 }))
+    window.scrollTo({ top: 0 })
+  }
+
+  const onQuick = (k: QuickKind) => (k === 'checkin' ? go('daily') : setQuick(k))
+  const isActive = (n: (typeof NAV)[number]) => route.page === n.id || !!n.also?.includes(route.page)
+  const moreActive = !TABS.includes(route.page) && !['order', 'client'].includes(route.page)
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">Freelance Tracker</div>
-        <Search onOpen={(page, id) => go(page, id)} />
-        <Notifications onOpen={(page, id) => go(page, id)} />
-        <QuickAdd onAdd={(page) => go(page, page === 'daily' ? null : 'new')} />
-      </header>
+    <div className="shell">
+      <aside className="sidebar" aria-label="Main navigation">
+        <div className="brand">
+          <span className="logo" aria-hidden="true">FT</span>
+          <span>Freelance Tracker</span>
+        </div>
+        <QuickAdd onPick={onQuick} />
+        <nav className="side-nav">
+          {NAV.map((n) => (
+            <button key={n.id} className={isActive(n) ? 'side-link active' : 'side-link'} onClick={() => go(n.id)} aria-current={isActive(n) ? 'page' : undefined}>
+              <Icon name={n.icon} />
+              {n.label}
+            </button>
+          ))}
+        </nav>
+        <div className="side-foot">
+          {account ? (
+            <>
+              <span className="muted small ellipsis" title={account.email}>{account.email}</span>
+              <button className="link small" onClick={account.signOut}>Sign out</button>
+            </>
+          ) : (
+            <span className="muted small">Preview: saved in this browser</span>
+          )}
+        </div>
+      </aside>
 
-      <nav className="nav" aria-label="Main">
-        {NAV.map((n) => (
-          <button
-            key={n.id}
-            className={route.page === n.id ? 'tab active' : 'tab'}
-            onClick={() => go(n.id)}
-          >
-            {n.label}
+      <div className="main-col">
+        <header className="topbar">
+          <div className="brand mobile-only">
+            <span className="logo" aria-hidden="true">FT</span>
+          </div>
+          <Search onOpen={(page, id) => go(page, id)} />
+          <Notifications onOpen={(page, id) => go(page, id)} />
+        </header>
+
+        {error && (
+          <div className="error-bar" role="alert">
+            <span className="grow">{error}</span>
+            <button className="ghost" onClick={reload}>Retry</button>
+            <button className="ghost" onClick={dismissError} aria-label="Dismiss">×</button>
+          </div>
+        )}
+
+        {status === 'loading' ? (
+          <div className="page"><p className="muted">Loading your data…</p></div>
+        ) : (
+          <main key={route.key}>
+            {route.page === 'home' && <Home go={go} />}
+            {route.page === 'clients' && <Clients go={go} initialId={route.id} />}
+            {route.page === 'client' && route.id && <ClientDetail go={go} id={route.id} />}
+            {route.page === 'orders' && <Orders go={go} initialId={route.id} />}
+            {route.page === 'order' && route.id && <OrderDetail go={go} id={route.id} />}
+            {route.page === 'money' && <Money go={go} initialId={route.id} />}
+            {route.page === 'reports' && <Reports />}
+            {route.page === 'daily' && <DailyLog />}
+            {route.page === 'settings' && <Settings />}
+          </main>
+        )}
+
+        <footer className="foot muted small">
+          {mode === 'cloud' ? 'Saved to your account.' : 'Preview: your data stays in this browser.'}
+        </footer>
+      </div>
+
+      <nav className="tabbar" aria-label="Main">
+        {NAV.filter((n) => TABS.includes(n.id)).map((n) => (
+          <button key={n.id} className={isActive(n) ? 'tab active' : 'tab'} onClick={() => go(n.id)} aria-current={isActive(n) ? 'page' : undefined}>
+            <Icon name={n.icon} size={22} />
+            <span>{n.label}</span>
           </button>
         ))}
+        <button className={moreActive ? 'tab active' : 'tab'} onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}>
+          <Icon name="more" size={22} />
+          <span>More</span>
+        </button>
       </nav>
+      <QuickAdd onPick={onQuick} variant="fab" />
 
-      {error && (
-        <div className="error-bar" role="alert">
-          <span className="grow">{error}</span>
-          <button className="ghost" onClick={reload}>Retry</button>
-          <button className="ghost" onClick={dismissError} aria-label="Dismiss">×</button>
+      {moreOpen && (
+        <div className="sheet-overlay" onClick={() => setMoreOpen(false)}>
+          <div className="sheet" role="menu" onClick={(e) => e.stopPropagation()}>
+            {NAV.filter((n) => !TABS.includes(n.id)).map((n) => (
+              <button key={n.id} role="menuitem" onClick={() => go(n.id)}>
+                <Icon name={n.icon} /> {n.label}
+              </button>
+            ))}
+            {account && (
+              <button role="menuitem" onClick={account.signOut}>
+                <Icon name="logout" /> Sign out
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {status === 'loading' ? (
-        <div className="page"><p className="muted">Loading your data…</p></div>
-      ) : (
-      <main key={route.key}>
-        {route.page === 'home' && <Home go={(p, id) => go(p, id ?? null)} />}
-        {route.page === 'clients' && <Clients initialId={route.id} />}
-        {route.page === 'orders' && <Orders initialId={route.id} />}
-        {route.page === 'money' && <Money initialId={route.id} />}
-        {route.page === 'daily' && <DailyLog />}
-        {route.page === 'settings' && <Settings />}
-      </main>
-      )}
-
-      <footer className="foot muted small">
-        {mode === 'cloud' ? 'Your data is saved to your account.' : 'Preview: your data is saved in this browser only.'}
-      </footer>
+      {quick === 'client' && <ClientForm client={null} onClose={() => setQuick(null)} onSaved={(id) => go('client', id)} onOpenExisting={(id) => go('client', id)} />}
+      {quick === 'order' && <OrderForm order={null} onClose={() => setQuick(null)} onSaved={(id) => go('order', id)} />}
+      {quick === 'payment' && <PaymentForm payment={null} onClose={() => setQuick(null)} />}
+      {quick === 'expense' && <ExpenseForm expense={null} onClose={() => setQuick(null)} />}
     </div>
   )
 }
@@ -109,10 +180,7 @@ function AccountGate() {
   }, [])
 
   const account = useMemo(
-    () =>
-      session
-        ? { userId: session.user.id, email: session.user.email ?? '', signOut: () => void supabase.auth.signOut() }
-        : null,
+    () => (session ? { userId: session.user.id, email: session.user.email ?? '', signOut: () => void supabase.auth.signOut() } : null),
     [session],
   )
 

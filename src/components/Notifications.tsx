@@ -26,8 +26,8 @@ export function Notifications({ onOpen }: { onOpen: (page: Page, id: string) => 
 
   const openItem = (orderId?: string, clientId?: string) => {
     setOpen(false)
-    if (orderId) onOpen('orders', orderId)
-    else if (clientId) onOpen('clients', clientId)
+    if (orderId) onOpen('order', orderId)
+    else if (clientId) onOpen('client', clientId)
   }
 
   return (

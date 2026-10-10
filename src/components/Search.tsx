@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { searchAll, clientName, formatMoney } from '../utils'
 import type { Page } from '../App'
+import { Icon } from './Icon'
 
 export function Search({ onOpen }: { onOpen: (page: Page, id: string) => void }) {
   const { data } = useStore()
@@ -36,10 +37,11 @@ export function Search({ onOpen }: { onOpen: (page: Page, id: string) => void })
 
   return (
     <div className="search">
+      <span className="search-icon" aria-hidden="true"><Icon name="search" size={16} /></span>
       <input
         ref={ref}
         className="search-global"
-        placeholder="Search clients, orders, payments (Ctrl+K)"
+        placeholder="Search clients, orders, payments…"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value)
@@ -49,16 +51,17 @@ export function Search({ onOpen }: { onOpen: (page: Page, id: string) => void })
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         aria-label="Search"
       />
+      <kbd className="kbd" aria-hidden="true">Ctrl K</kbd>
       {open && query.trim() && (
         <div className="search-results" role="listbox">
           {!hasAny && <div className="muted small pad">No matches.</div>}
           {results.clients.map((c) => (
-            <button key={c.id} className="result" onMouseDown={() => pick('clients', c.id)}>
+            <button key={c.id} className="result" onMouseDown={() => pick('client', c.id)}>
               <span className="tag">Client</span> {c.name}
             </button>
           ))}
           {results.orders.map((o) => (
-            <button key={o.id} className="result" onMouseDown={() => pick('orders', o.id)}>
+            <button key={o.id} className="result" onMouseDown={() => pick('order', o.id)}>
               <span className="tag">Order</span> {o.title} <span className="muted small">{clientName(data, o.clientId)}</span>
             </button>
           ))}

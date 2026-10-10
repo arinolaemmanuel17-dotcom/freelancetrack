@@ -33,6 +33,12 @@ export interface Client {
   createdAt: string
 }
 
+export interface ChecklistItem {
+  id: string
+  text: string
+  done: boolean
+}
+
 export interface Order {
   id: string
   clientId: string
@@ -45,6 +51,7 @@ export interface Order {
   startDate: string | null
   dueDate: string | null // YYYY-MM-DD
   notes: string
+  checklist: ChecklistItem[]
   createdAt: string
   updatedAt: string
 }
@@ -62,6 +69,19 @@ export interface Payment {
   notes: string
 }
 
+export interface Expense {
+  id: string
+  orderId: string | null
+  clientId: string | null
+  date: string // YYYY-MM-DD
+  amount: number
+  currency: string
+  rateToBase: number
+  category: string
+  method: string
+  notes: string
+}
+
 export interface DayEntry {
   date: string // YYYY-MM-DD, unique
   hours: number
@@ -76,6 +96,8 @@ export interface Settings {
   services: string[]
   platforms: string[]
   methods: string[]
+  categories: string[] // expense categories
+  monthlyGoal: number // in base currency; 0 means no goal set
   outreachGapDays: number
 }
 
@@ -83,6 +105,7 @@ export interface AppData {
   clients: Client[]
   orders: Order[]
   payments: Payment[]
+  expenses: Expense[]
   days: DayEntry[]
   settings: Settings
   example?: boolean // true while the app shows made-up example records

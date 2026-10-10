@@ -1,192 +1,153 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { useStore } from '../store'
-import { Badge, ConfirmButton, Empty, Field, Modal, Options } from '../components/ui'
-import type { Payment, PaymentStatus } from '../types'
-import { clientName, formatMoney, monthOf, orderTitle, toBase, today } from '../utils'
+import { Badge, Empty } from '../components/ui'
+import { ExpenseForm, PaymentForm } from '../components/Forms'
+import { Icon } from '../components/Icon'
+import type { Go } from '../App'
+import type { Expense, Payment } from '../types'
+import { clientName, formatMoney, lastMonths, monthLabel, monthOf, orderTitle, previousMonth, receivedIn, spentIn, toBase, today } from '../utils'
 
-export function Money({ initialId }: { initialId?: string | null }) {
+type Tab = 'payments' | 'expenses'
+
+export function Money({ go, initialId, initialTab }: { go: Go; initialId?: string | null; initialTab?: Tab }) {
   const { data } = useStore()
   const base = data.settings.baseCurrency
-  const [filter, setFilter] = useState<PaymentStatus | 'All'>('All')
-  const [editing, setEditing] = useState<Payment | 'new' | null>(() => {
-    if (initialId === 'new') return 'new'
-    return initialId ? (data.payments.find((p) => p.id === initialId) ?? null) : null
-  })
-
-  const month = monthOf(today())
-  const received = data.payments
-    .filter((p) => p.status === 'Received' && monthOf(p.date) === month)
-    .reduce((s, p) => s + toBase(p.amount, p.rateToBase), 0)
-  const expected = data.payments
-    .filter((p) => p.status === 'Expected')
-    .reduce((s, p) => s + toBase(p.amount, p.rateToBase), 0)
-  const allReceived = data.payments
-    .filter((p) => p.status === 'Received')
-    .reduce((s, p) => s + toBase(p.amount, p.rateToBase), 0)
-
-  const rows = useMemo(
-    () =>
-      data.payments
-        .filter((p) => filter === 'All' || p.status === filter)
-        .sort((a, b) => b.date.localeCompare(a.date)),
-    [data.payments, filter],
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'payments')
+  const [month, setMonth] = useState<string | 'all'>(monthOf(today()))
+  const [editPay, setEditPay] = useState<Payment | 'new' | null>(() =>
+    initialTab !== 'expenses' && initialId === 'new' ? 'new' : (data.payments.find((p) => p.id === initialId) ?? null),
   )
+  const [editExp, setEditExp] = useState<Expense | 'new' | null>(() =>
+    initialTab === 'expenses' && initialId === 'new' ? 'new' : (data.expenses.find((e) => e.id === initialId) ?? null),
+  )
+
+  const inPeriod = (date: string) => month === 'all' || monthOf(date) === month
+  const received = month === 'all' ? data.payments.filter((p) => p.status === 'Received').reduce((s, p) => s + toBase(p.amount, p.rateToBase), 0) : receivedIn(data, month)
+  const spent = month === 'all' ? data.expenses.reduce((s, e) => s + toBase(e.amount, e.rateToBase), 0) : spentIn(data, month)
+  const expected = data.payments.filter((p) => p.status === 'Expected').reduce((s, p) => s + toBase(p.amount, p.rateToBase), 0)
+
+  const payments = data.payments.filter((p) => inPeriod(p.date)).sort((a, b) => b.date.localeCompare(a.date))
+  const expenses = data.expenses.filter((e) => inPeriod(e.date)).sort((a, b) => b.date.localeCompare(a.date))
+
+  const months = lastMonths(24)
+  const step = (dir: -1 | 1) => {
+    if (month === 'all') return setMonth(monthOf(today()))
+    const i = months.indexOf(month)
+    const next = months[i + dir]
+    if (next) setMonth(next)
+    else if (dir === -1) setMonth(previousMonth(month))
+  }
 
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Money</h1>
-        <button className="primary" onClick={() => setEditing('new')} disabled={data.settings.currencies.length === 0}>
-          Add payment
+        <div>
+          <h1>Money</h1>
+          <p className="muted small">Everything that came in and went out.</p>
+        </div>
+        <div className="head-actions">
+          <button className="ghost" onClick={() => setEditExp('new')}>
+            <Icon name="expense" size={18} /> Add expense
+          </button>
+          <button className="primary" onClick={() => setEditPay('new')}>
+            <Icon name="plus" size={18} /> Record payment
+          </button>
+        </div>
+      </div>
+
+      <div className="period">
+        <button className="ghost icon-btn" onClick={() => step(-1)} aria-label="Previous month">‹</button>
+        <strong>{month === 'all' ? 'All time' : monthLabel(month, true)}</strong>
+        <button className="ghost icon-btn" onClick={() => step(1)} aria-label="Next month" disabled={month !== 'all' && month >= monthOf(today())}>›</button>
+        <button className={month === 'all' ? 'chip active' : 'chip'} onClick={() => setMonth(month === 'all' ? monthOf(today()) : 'all')}>
+          All time
         </button>
       </div>
 
-      <div className="stats">
+      <div className="stats four">
         <div className="stat">
-          <span>Received this month</span>
+          <span>Money in</span>
           <strong>{formatMoney(received, base)}</strong>
         </div>
         <div className="stat">
-          <span>Expected</span>
-          <strong>{formatMoney(expected, base)}</strong>
+          <span>Money out</span>
+          <strong>{formatMoney(spent, base)}</strong>
         </div>
         <div className="stat">
-          <span>Received, all time</span>
-          <strong>{formatMoney(allReceived, base)}</strong>
+          <span>Profit</span>
+          <strong className={received - spent < 0 ? 'bad-text' : ''}>{formatMoney(received - spent, base)}</strong>
+        </div>
+        <div className="stat">
+          <span>Expected, not in yet</span>
+          <strong>{formatMoney(expected, base)}</strong>
         </div>
       </div>
 
-      <div className="toolbar">
-        <select value={filter} onChange={(e) => setFilter(e.target.value as PaymentStatus | 'All')}>
-          <option value="All">All payments</option>
-          <option value="Received">Received</option>
-          <option value="Expected">Expected</option>
-        </select>
+      <div className="chips" role="tablist" aria-label="Money views">
+        <button role="tab" aria-selected={tab === 'payments'} className={tab === 'payments' ? 'chip active' : 'chip'} onClick={() => setTab('payments')}>
+          Payments in <span className="chip-count">{payments.length}</span>
+        </button>
+        <button role="tab" aria-selected={tab === 'expenses'} className={tab === 'expenses' ? 'chip active' : 'chip'} onClick={() => setTab('expenses')}>
+          Expenses <span className="chip-count">{expenses.length}</span>
+        </button>
       </div>
 
-      {rows.length === 0 ? (
-        <Empty>No payments yet.</Empty>
-      ) : (
-        <ul className="list">
-          {rows.map((p) => (
-            <li key={p.id} className="row">
-              <button className="link grow left" onClick={() => setEditing(p)}>
-                <strong>{formatMoney(p.amount, p.currency)}</strong>
-                <span className="muted">
-                  {' '}
-                  {p.orderId ? orderTitle(data, p.orderId) : clientName(data, p.clientId)}
+      {tab === 'payments' ? (
+        payments.length === 0 ? (
+          <Empty>No payments in this period.</Empty>
+        ) : (
+          <div className="table-card">
+            {payments.map((p) => (
+              <div key={p.id} className="trow money-grid clickable" onClick={() => setEditPay(p)}>
+                <span className="cell-main">
+                  <span>
+                    <strong>{p.orderId ? orderTitle(data, p.orderId) : clientName(data, p.clientId) === '-' ? 'Payment' : clientName(data, p.clientId)}</strong>
+                    <span className="muted small block">
+                      {p.orderId ? clientName(data, p.clientId) + ' · ' : ''}
+                      {p.date} · {p.method || 'Method not set'}
+                    </span>
+                  </span>
                 </span>
-              </button>
-              <Badge tone={p.status === 'Received' ? 'good' : 'warn'}>{p.status}</Badge>
-              <span className="muted small">{p.date}</span>
-              <span className="muted small">{p.method}</span>
-            </li>
+                <span data-label="Status"><Badge tone={p.status === 'Received' ? 'good' : 'warn'}>{p.status}</Badge></span>
+                <span className="right num strong">
+                  {formatMoney(p.amount, p.currency)}
+                  {p.currency !== base && <span className="muted small block">{formatMoney(toBase(p.amount, p.rateToBase), base)}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        )
+      ) : expenses.length === 0 ? (
+        <Empty>No expenses in this period. Add fees, data, transport and other costs to see your real profit.</Empty>
+      ) : (
+        <div className="table-card">
+          {expenses.map((e) => (
+            <div key={e.id} className="trow money-grid clickable" onClick={() => setEditExp(e)}>
+              <span className="cell-main">
+                <span>
+                  <strong>{e.notes || e.category || 'Expense'}</strong>
+                  <span className="muted small block">
+                    {e.date} · {e.method || 'Method not set'}
+                    {e.orderId ? ` · ${orderTitle(data, e.orderId)}` : ''}
+                  </span>
+                </span>
+              </span>
+              <span data-label="Category"><Badge tone="muted">{e.category || 'No category'}</Badge></span>
+              <span className="right num strong">
+                −{formatMoney(e.amount, e.currency)}
+                {e.currency !== base && <span className="muted small block">{formatMoney(toBase(e.amount, e.rateToBase), base)}</span>}
+              </span>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
 
-      {editing && <PaymentForm payment={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      <p className="muted small">
+        Need the bigger picture? <button className="link inline" onClick={() => go('reports')}>Open reports</button>
+      </p>
+
+      {editPay && <PaymentForm payment={editPay === 'new' ? null : editPay} onClose={() => setEditPay(null)} />}
+      {editExp && <ExpenseForm expense={editExp === 'new' ? null : editExp} onClose={() => setEditExp(null)} />}
     </div>
-  )
-}
-
-function PaymentForm({ payment, onClose }: { payment: Payment | null; onClose: () => void }) {
-  const { data, savePayment, deletePayment } = useStore()
-  const base = data.settings.baseCurrency
-  const [orderId, setOrderId] = useState(payment?.orderId ?? '')
-  const [date, setDate] = useState(payment?.date ?? today())
-  const [amount, setAmount] = useState(payment ? String(payment.amount) : '')
-  const [currency, setCurrency] = useState(payment?.currency ?? base)
-  const [rate, setRate] = useState(payment ? String(payment.rateToBase) : '')
-  const [method, setMethod] = useState(payment?.method ?? data.settings.methods[0] ?? '')
-  const [status, setStatus] = useState<PaymentStatus>(payment?.status ?? 'Received')
-  const [notes, setNotes] = useState(payment?.notes ?? '')
-
-  const order = data.orders.find((o) => o.id === orderId)
-  const foreign = currency !== base
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    const amt = Number(amount)
-    if (!amt || amt <= 0) return
-    savePayment({
-      id: payment?.id,
-      orderId: orderId || null,
-      clientId: order?.clientId ?? payment?.clientId ?? null,
-      date,
-      amount: amt,
-      currency,
-      rateToBase: foreign ? Number(rate) || 0 : 1,
-      method,
-      status,
-      notes: notes.trim(),
-    })
-    onClose()
-  }
-
-  return (
-    <Modal title={payment ? 'Edit payment' : 'New payment'} onClose={onClose}>
-      <form onSubmit={submit} className="form">
-        <Field label="Order (optional)" wide>
-          <select value={orderId} onChange={(e) => setOrderId(e.target.value)}>
-            <option value="">No order</option>
-            {data.orders.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.title} ({clientName(data, o.clientId)})
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Date">
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-        </Field>
-        <Field label="Status">
-          <select value={status} onChange={(e) => setStatus(e.target.value as PaymentStatus)}>
-            <option>Received</option>
-            <option>Expected</option>
-          </select>
-        </Field>
-        <Field label="Amount *">
-          <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
-        </Field>
-        <Field label="Currency">
-          <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
-            <Options values={data.settings.currencies} />
-          </select>
-        </Field>
-        {foreign && (
-          <Field label={`Rate on this day (${base} per 1 ${currency})`}>
-            <input type="number" min="0" step="any" value={rate} onChange={(e) => setRate(e.target.value)} required />
-          </Field>
-        )}
-        <Field label="Method">
-          <select value={method} onChange={(e) => setMethod(e.target.value)}>
-            <Options values={data.settings.methods} />
-          </select>
-        </Field>
-        <Field label="Notes" wide>
-          <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </Field>
-        <div className="actions">
-          {payment && (
-            <ConfirmButton
-              label="Delete"
-              question="Delete this payment?"
-              onConfirm={() => {
-                deletePayment(payment.id)
-                onClose()
-              }}
-            />
-          )}
-          <span className="grow" />
-          <button type="button" className="ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className="primary">
-            Save
-          </button>
-        </div>
-      </form>
-    </Modal>
   )
 }

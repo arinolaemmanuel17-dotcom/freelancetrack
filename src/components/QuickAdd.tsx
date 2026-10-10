@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Page } from '../App'
+import { Icon } from './Icon'
 
-export function QuickAdd({ onAdd }: { onAdd: (page: Page) => void }) {
+export type QuickKind = 'client' | 'order' | 'payment' | 'expense' | 'checkin'
+
+const ITEMS: { kind: QuickKind; label: string; icon: string }[] = [
+  { kind: 'order', label: 'New order', icon: 'orders' },
+  { kind: 'client', label: 'New client', icon: 'clients' },
+  { kind: 'payment', label: 'Record payment', icon: 'money' },
+  { kind: 'expense', label: 'Add expense', icon: 'expense' },
+  { kind: 'checkin', label: "Today's check-in", icon: 'checkin' },
+]
+
+// The "New" button. variant="fab" is the round button on phones.
+export function QuickAdd({ onPick, variant = 'button' }: { onPick: (k: QuickKind) => void; variant?: 'button' | 'fab' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -9,32 +20,33 @@ export function QuickAdd({ onAdd }: { onAdd: (page: Page) => void }) {
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     window.addEventListener('mousedown', onDown)
-    return () => window.removeEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
   }, [])
 
-  const items: { label: string; page: Page }[] = [
-    { label: 'New client', page: 'clients' },
-    { label: 'New order', page: 'orders' },
-    { label: 'New payment', page: 'money' },
-    { label: "Today's check-in", page: 'daily' },
-  ]
-
   return (
-    <div className="quick" ref={ref}>
-      <button className="primary" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        + Add
+    <div className={`quick ${variant}`} ref={ref}>
+      <button className={variant === 'fab' ? 'fab-btn' : 'primary new-btn'} onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Add new">
+        <Icon name="plus" size={variant === 'fab' ? 26 : 18} />
+        {variant === 'button' && <span>New</span>}
       </button>
       {open && (
-        <div className="menu">
-          {items.map((i) => (
+        <div className="menu" role="menu">
+          {ITEMS.map((i) => (
             <button
-              key={i.label}
+              key={i.kind}
+              role="menuitem"
               onClick={() => {
                 setOpen(false)
-                onAdd(i.page)
+                onPick(i.kind)
               }}
             >
+              <Icon name={i.icon} size={18} />
               {i.label}
             </button>
           ))}

@@ -31,7 +31,7 @@ export function Field({ label, children, wide }: { label: string; children: Reac
   )
 }
 
-export function Badge({ tone, children }: { tone?: 'good' | 'warn' | 'bad' | 'muted'; children: ReactNode }) {
+export function Badge({ tone, children }: { tone?: 'good' | 'warn' | 'bad' | 'muted' | 'info'; children: ReactNode }) {
   return <span className={`badge ${tone ?? 'muted'}`}>{children}</span>
 }
 

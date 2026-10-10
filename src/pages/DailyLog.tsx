@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { useStore } from '../store'
 import { Empty, Field } from '../components/ui'
 import type { DayEntry } from '../types'
-import { addDays, today } from '../utils'
+import { addDays, checkinStreak, today } from '../utils'
 
 const blank = (date: string): DayEntry => ({ date, hours: 0, outreach: 0, blockers: '', notes: '' })
 
@@ -14,9 +14,34 @@ export function DailyLog() {
     [data.days],
   )
 
+  const weekStart = addDays(today(), -6)
+  const week = data.days.filter((d) => d.date >= weekStart)
+  const hours = week.reduce((s, d) => s + d.hours, 0)
+  const outreach = week.reduce((s, d) => s + d.outreach, 0)
+  const streak = checkinStreak(data)
+
   return (
     <div className="page">
-      <h1>Daily check-in</h1>
+      <div className="page-head">
+        <div>
+          <h1>Daily check-in</h1>
+          <p className="muted small">A minute a day: hours worked, people contacted, and what's blocking you.</p>
+        </div>
+      </div>
+      <div className="stats">
+        <div className="stat">
+          <span>Streak</span>
+          <strong>{streak} day{streak === 1 ? '' : 's'}</strong>
+        </div>
+        <div className="stat">
+          <span>Hours, last 7 days</span>
+          <strong>{hours}</strong>
+        </div>
+        <div className="stat">
+          <span>Contacted, last 7 days</span>
+          <strong>{outreach}</strong>
+        </div>
+      </div>
       <div className="card">
         <div className="field">
           <span>Date</span>

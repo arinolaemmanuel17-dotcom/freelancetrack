@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { AppData, Client, DayEntry, Order, Payment, Settings } from './types'
+import type { AppData, Client, DayEntry, Expense, Order, Payment, Settings } from './types'
 import { EMPTY_DATA, exampleData, loadData, newId, saveData } from './storage'
 import * as db from './db'
 import { today } from './utils'
@@ -25,6 +25,9 @@ interface StoreValue {
   deleteOrder: (id: string) => void
   savePayment: (p: Partial<Payment> & Pick<Payment, 'amount' | 'currency'>) => string
   deletePayment: (id: string) => void
+  saveExpense: (e: Partial<Expense> & Pick<Expense, 'amount' | 'currency'>) => string
+  deleteExpense: (id: string) => void
+  importClients: (rows: Pick<Client, 'name' | 'contact' | 'platform' | 'notes'>[]) => number
   saveDay: (d: DayEntry) => void
   updateSettings: (s: Partial<Settings>) => void
   resetAll: () => void
@@ -44,6 +47,7 @@ export function StoreProvider({ account, children }: { account?: Account | null;
   const [status, setStatus] = useState<'loading' | 'ready'>(cloud ? 'loading' : 'ready')
   const [error, setError] = useState<string | null>(null)
   const dataRef = useRef(data)
+  const queueRef = useRef<Promise<void>>(Promise.resolve())
   useEffect(() => {
     dataRef.current = data
   }, [data])
@@ -80,10 +84,11 @@ export function StoreProvider({ account, children }: { account?: Account | null;
     const now = () => new Date().toISOString()
     const userId = account?.userId ?? ''
 
-    // Runs a database write in cloud mode. On failure, tell the user and resync.
+    // Runs database writes one after another in cloud mode, so a new client is
+    // saved before the order that points to it. On failure, tell the user and resync.
     const persist = (label: string, op: () => Promise<void>) => {
       if (!cloud) return
-      op().catch((e: Error) => {
+      queueRef.current = queueRef.current.then(op).catch((e: Error) => {
         setError(`${label} wasn't saved: ${e.message}`)
         reload()
       })
@@ -123,6 +128,11 @@ export function StoreProvider({ account, children }: { account?: Account | null;
             clients: d.clients.filter((c) => c.id !== id),
             orders: d.orders.filter((o) => o.clientId !== id),
             payments: d.payments.filter((p) => p.clientId !== id && !(p.orderId && orderIds.includes(p.orderId))),
+            expenses: d.expenses.map((e) => ({
+              ...e,
+              clientId: e.clientId === id ? null : e.clientId,
+              orderId: e.orderId && orderIds.includes(e.orderId) ? null : e.orderId,
+            })),
           }
         })
         persist('Deleting the client', () => db.remove('clients', id))
@@ -152,6 +162,7 @@ export function StoreProvider({ account, children }: { account?: Account | null;
           startDate: o.startDate ?? existing?.startDate ?? null,
           dueDate: o.dueDate !== undefined ? o.dueDate : (existing?.dueDate ?? null),
           notes: o.notes ?? existing?.notes ?? '',
+          checklist: o.checklist ?? existing?.checklist ?? [],
           createdAt: existing?.createdAt ?? now(),
           updatedAt: now(),
         }
@@ -165,6 +176,7 @@ export function StoreProvider({ account, children }: { account?: Account | null;
           ...d,
           orders: d.orders.filter((o) => o.id !== id),
           payments: d.payments.filter((p) => p.orderId !== id),
+          expenses: d.expenses.map((e) => (e.orderId === id ? { ...e, orderId: null } : e)),
         }))
         persist('Deleting the order', () => db.remove('orders', id))
       },
@@ -194,6 +206,44 @@ export function StoreProvider({ account, children }: { account?: Account | null;
       deletePayment(id) {
         setData((d) => ({ ...d, payments: d.payments.filter((p) => p.id !== id) }))
         persist('Deleting the payment', () => db.remove('payments', id))
+      },
+
+      saveExpense(e) {
+        const id = e.id ?? newId()
+        const d0 = dataRef.current
+        const existing = d0.expenses.find((x) => x.id === id)
+        const currency = e.currency
+        const row: Expense = {
+          id,
+          orderId: e.orderId !== undefined ? e.orderId : (existing?.orderId ?? null),
+          clientId: e.clientId !== undefined ? e.clientId : (existing?.clientId ?? null),
+          date: e.date ?? existing?.date ?? today(),
+          amount: e.amount,
+          currency,
+          rateToBase: currency === d0.settings.baseCurrency ? 1 : (e.rateToBase ?? existing?.rateToBase ?? 0),
+          category: e.category ?? existing?.category ?? '',
+          method: e.method ?? existing?.method ?? '',
+          notes: e.notes ?? existing?.notes ?? '',
+        }
+        setData((d) => ({ ...d, expenses: [...d.expenses.filter((x) => x.id !== id), row] }))
+        persist('The expense', () => db.upsertExpense(row))
+        return id
+      },
+
+      deleteExpense(id) {
+        setData((d) => ({ ...d, expenses: d.expenses.filter((x) => x.id !== id) }))
+        persist('Deleting the expense', () => db.remove('expenses', id))
+      },
+
+      importClients(rows) {
+        const existingNames = new Set(dataRef.current.clients.map((c) => c.name.trim().toLowerCase()))
+        const fresh: Client[] = rows
+          .filter((r) => r.name.trim() && !existingNames.has(r.name.trim().toLowerCase()))
+          .map((r) => ({ id: newId(), name: r.name.trim(), contact: r.contact, platform: r.platform, notes: r.notes, lastContact: null, createdAt: now() }))
+        if (fresh.length === 0) return 0
+        setData((d) => ({ ...d, clients: [...d.clients, ...fresh] }))
+        persist('Importing clients', () => db.insertClients(fresh))
+        return fresh.length
       },
 
       saveDay(day) {
