@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { AppData, Client, DayEntry, Expense, Order, Payment, Settings } from './types'
+import type { AppData, Client, DayEntry, Expense, MonthlyGoal, Order, Payment, Settings } from './types'
 import { EMPTY_DATA, exampleData, loadData, newId, saveData } from './storage'
 import * as db from './db'
-import { altRate, formatMoney, orderBalance, rateFor, today } from './utils'
+import { altRate, formatMoney, goalWindow, orderBalance, rateFor, today } from './utils'
 
 export interface Account {
   userId: string
@@ -43,6 +43,7 @@ interface StoreValue {
   deleteExpense: (id: string) => void
   importClients: (rows: Pick<Client, 'name' | 'contact' | 'platform' | 'notes'>[]) => number
   saveDay: (d: DayEntry) => void
+  saveGoal: (g: MonthlyGoal) => boolean // false if the goal window is closed for that month
   updateSettings: (s: Partial<Settings>) => void
   resetAll: () => void
   loadExamples: () => void
@@ -349,6 +350,13 @@ export function StoreProvider({ account, children }: { account?: Account | null;
         if (day.date !== today()) return // only today's check-in can be added or changed
         setData((d) => ({ ...d, days: [...d.days.filter((x) => x.date !== day.date), day] }))
         persist('The check-in', () => db.upsertDay(userId, day))
+      },
+
+      saveGoal(g) {
+        if (goalWindow().month !== g.month || !(g.amount > 0)) return false
+        setData((d) => ({ ...d, goals: [...d.goals.filter((x) => x.month !== g.month), g].sort((a, b) => a.month.localeCompare(b.month)) }))
+        persist('Your goal', () => db.upsertGoal(userId, g))
+        return true
       },
 
       updateSettings(s) {

@@ -65,6 +65,7 @@ export interface Attention {
   text: string
   orderId?: string
   clientId?: string
+  page?: 'home' | 'reports' | 'daily'
 }
 
 // The "Needs attention" list. Each rule is a plain check against the data.
@@ -110,6 +111,12 @@ export function attentionItems(data: AppData, now: string): Attention[] {
         clientId: c.id,
       })
     }
+  }
+
+  // Goal reminder: the window for next month's goal is open and it isn't set yet.
+  const gw = goalWindow(now)
+  if (gw.open && gw.month && goalFor(data, gw.month) === null) {
+    items.push({ id: `goal-${gw.month}`, level: 'medium', text: `Set your goal for ${monthLabel(gw.month, true)} (open until the 5th)`, page: 'home' })
   }
 
   const order = { high: 0, medium: 1, low: 2 } as const
@@ -326,4 +333,26 @@ export function rateText(base: string, currency: string, rateToBase: number): st
   if (!rateToBase) return ''
   const per = 1 / rateToBase
   return `1 ${base} = ${per.toLocaleString(undefined, { maximumFractionDigits: per < 10 ? 4 : 2 })} ${currency}`
+}
+
+// ---------- monthly goals ----------
+// A month's goal can be set from the 25th of the month before until the 5th of the month.
+export interface GoalWindow {
+  open: boolean
+  month: string | null // the month you can set a goal for right now
+  nextOpens: string // YYYY-MM-DD when the window next opens (when closed)
+  nextMonth: string // the month that window is for
+}
+
+export function goalWindow(now = today()): GoalWindow {
+  const day = Number(now.slice(8, 10))
+  const thisMonth = monthOf(now)
+  const following = lastMonths(1, addDays(`${thisMonth}-28`, 7))[0] // next month key
+  if (day >= 25) return { open: true, month: following, nextOpens: now, nextMonth: following }
+  if (day <= 5) return { open: true, month: thisMonth, nextOpens: now, nextMonth: thisMonth }
+  return { open: false, month: null, nextOpens: `${thisMonth}-25`, nextMonth: following }
+}
+
+export function goalFor(data: AppData, month: string): number | null {
+  return data.goals.find((g) => g.month === month)?.amount ?? null
 }

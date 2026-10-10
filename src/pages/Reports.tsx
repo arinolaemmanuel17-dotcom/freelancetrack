@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useStore } from '../store'
 import { MonthColumns } from '../components/Chart'
-import { clientName, daysBetween, downloadCsv, lastMonths, monthLabel, orderToBase, receivedIn, spentIn, toBase, today, totalOutstanding } from '../utils'
+import { clientName, daysBetween, downloadCsv, lastMonths, monthLabel, monthOf, orderToBase, receivedIn, spentIn, toBase, today, totalOutstanding } from '../utils'
 import { OPEN_STATUSES } from '../types'
 
 type Range = 3 | 6 | 12 | 0 // months; 0 = all time
@@ -105,6 +105,48 @@ export function Reports() {
     return [...m.entries()].map(([key, value]) => ({ key, value })).sort((a, b) => b.value - a.value)
   })()
 
+  // ---------- check-in insights ----------
+  // A day's hours are shared equally between the platforms (or activities) picked that day.
+  const platformRows = (() => {
+    const names = new Set<string>([...data.days.flatMap((d) => d.platforms), ...byPlatform.map((r) => r.key).filter((k) => k !== 'Not set')])
+    return [...names]
+      .map((p) => {
+        const worked = days.filter((d) => d.platforms.includes(p))
+        const hrs = worked.reduce((s, d) => s + d.hours / d.platforms.length, 0)
+        const contacts = worked.reduce((s, d) => s + d.outreach / d.platforms.length, 0)
+        const newC = data.clients.filter((c) => c.platform === p && inRange(c.createdAt.slice(0, 10))).length
+        const moneyIn = byPlatform.find((r) => r.key === p)?.value ?? 0
+        return { p, days: worked.length, hrs, contacts, newC, moneyIn }
+      })
+      .filter((r) => r.days || r.newC || r.moneyIn)
+      .sort((a, b) => b.moneyIn - a.moneyIn || b.hrs - a.hrs)
+  })()
+  const activityRows = (() => {
+    const names = new Set(days.flatMap((d) => d.activities))
+    const tagged = days.filter((d) => d.activities.length).reduce((s, d) => s + d.hours, 0)
+    return [...names]
+      .map((a) => {
+        const did = days.filter((d) => d.activities.includes(a))
+        const hrs = did.reduce((s, d) => s + d.hours / d.activities.length, 0)
+        return { a, days: did.length, hrs, share: tagged > 0 ? hrs / tagged : 0 }
+      })
+      .sort((x, y) => y.hrs - x.hrs)
+  })()
+  const fmtH = (h: number) => `${Math.round(h * 10) / 10} h`
+
+  // ---------- goal history ----------
+  const thisMonth = monthOf(now)
+  const goalRows = [...data.goals]
+    .sort((a, b) => b.month.localeCompare(a.month))
+    .slice(0, 12)
+    .map((g) => {
+      const reached = receivedIn(data, g.month)
+      const result = g.month > thisMonth ? 'upcoming' : g.month === thisMonth ? (reached >= g.amount ? 'hit' : 'progress') : reached >= g.amount ? 'hit' : 'missed'
+      return { ...g, reached, result }
+    })
+  const finished = goalRows.filter((g) => g.result === 'hit' || g.result === 'missed')
+  const hits = finished.filter((g) => g.result === 'hit').length
+
   const exportReport = () =>
     downloadCsv(
       `statistics-${now}.csv`,
@@ -195,6 +237,115 @@ export function Reports() {
           <Stat label="People contacted" value={outreach} />
           <Stat label="New clients per 10 contacts" value={outreach > 0 ? (Math.round((newClients / outreach) * 100) / 10).toString() : '–'} note="New clients for every 10 people you reach" />
         </div>
+      </section>
+
+      <section className="stat-section">
+        <h2>Where your time goes</h2>
+        <div className="two-col">
+          <section className="card">
+            <div className="card-head">
+              <h2>Platforms</h2>
+              <span className="muted small">From check-ins and payments</span>
+            </div>
+            {platformRows.length === 0 ? (
+              <p className="muted small">Pick where you worked when you check in, and this fills up.</p>
+            ) : (
+              <div className="stat-table-wrap">
+                <table className="stat-table">
+                  <thead>
+                    <tr>
+                      <th>Platform</th>
+                      <th className="right">Days</th>
+                      <th className="right">Hours</th>
+                      <th className="right">New clients</th>
+                      <th className="right">Money in</th>
+                      <th className="right">Per hour</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {platformRows.map((r) => (
+                      <tr key={r.p}>
+                        <td>{r.p}</td>
+                        <td className="right num">{r.days || '–'}</td>
+                        <td className="right num">{r.hrs ? fmtH(r.hrs) : '–'}</td>
+                        <td className="right num">{r.newC || '–'}</td>
+                        <td className="right num">{r.moneyIn ? money(r.moneyIn) : '–'}</td>
+                        <td className="right num">{r.hrs && r.moneyIn ? money(r.moneyIn / r.hrs) : '–'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+          <section className="card">
+            <div className="card-head">
+              <h2>Activities</h2>
+              <span className="muted small">What you did on check-in days</span>
+            </div>
+            {activityRows.length === 0 ? (
+              <p className="muted small">Pick what you did when you check in, and this fills up.</p>
+            ) : (
+              <ul className="barlist">
+                {activityRows.map((r) => (
+                  <li key={r.a}>
+                    <span className="barlist-label">{r.a}</span>
+                    <span className="barlist-track">
+                      <span className="barlist-bar" style={{ width: `${Math.max(2, r.share * 100)}%` }} />
+                    </span>
+                    <span className="barlist-value num">
+                      {fmtH(r.hrs)} · {pct(r.share)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="card-head">
+          <h2>Monthly goals</h2>
+          {finished.length > 0 && (
+            <span className="muted small">
+              Hit {hits} of {finished.length}
+            </span>
+          )}
+        </div>
+        {goalRows.length === 0 ? (
+          <p className="muted small">No goals yet. You can set next month's goal from the 25th to the 5th, on Home.</p>
+        ) : (
+          <div className="stat-table-wrap">
+            <table className="stat-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th className="right">Goal</th>
+                  <th className="right">Reached</th>
+                  <th className="right">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {goalRows.map((g) => (
+                  <tr key={g.month}>
+                    <td>{monthLabel(g.month, true)}</td>
+                    <td className="right num">{money(g.amount)}</td>
+                    <td className="right num">
+                      {g.result === 'upcoming' ? '–' : `${money(g.reached)} (${pct(g.reached / g.amount)})`}
+                    </td>
+                    <td className="right">
+                      {g.result === 'hit' && <span className="badge good">✓ Hit</span>}
+                      {g.result === 'missed' && <span className="badge bad">Missed</span>}
+                      {g.result === 'progress' && <span className="badge info">In progress</span>}
+                      {g.result === 'upcoming' && <span className="badge">Starts {monthLabel(g.month)}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <div className="two-col">

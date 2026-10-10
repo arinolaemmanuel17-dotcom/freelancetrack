@@ -7,6 +7,8 @@ import type { Go } from '../App'
 import { OPEN_STATUSES } from '../types'
 import {
   checkinStreak,
+  goalFor,
+  goalWindow,
   clientName,
   daysBetween,
   formatMoney,
@@ -32,7 +34,7 @@ interface Activity {
 }
 
 export function Home({ go }: { go: Go }) {
-  const { data, resetAll, loadExamples, mode, updateSettings, account, money, toView, view } = useStore()
+  const { data, resetAll, loadExamples, mode, saveGoal, account, money, toView, view } = useStore()
   const now = today()
   const month = monthOf(now)
   const isEmpty = data.clients.length === 0 && data.orders.length === 0 && data.payments.length === 0
@@ -45,7 +47,9 @@ export function Home({ go }: { go: Go }) {
   const delta = inLast > 0 ? Math.round(((inThis - inLast) / inLast) * 100) : null
 
   const months = lastMonths(6)
-  const goal = data.settings.monthlyGoal
+  const gw = goalWindow(now)
+  const goal = goalFor(data, month) ?? 0
+  const targetGoal = gw.month ? goalFor(data, gw.month) : null
   const goalPct = goal > 0 ? Math.min(100, Math.round((inThis / goal) * 100)) : 0
   const streak = checkinStreak(data, now)
   const checkedToday = data.days.some((d) => d.date === now)
@@ -90,12 +94,20 @@ export function Home({ go }: { go: Go }) {
 
   const [goalInput, setGoalInput] = useState('')
   const [editingGoal, setEditingGoal] = useState(false)
-  const saveGoal = (e: FormEvent) => {
+  const [goalError, setGoalError] = useState('')
+  const submitGoal = (e: FormEvent) => {
     e.preventDefault()
     const v = Number(goalInput)
-    if (v >= 0) updateSettings({ monthlyGoal: v })
-    setEditingGoal(false)
+    if (!gw.month || !(v > 0)) {
+      setGoalError('Enter an amount above zero.')
+      return
+    }
+    if (saveGoal({ month: gw.month, amount: v })) {
+      setEditingGoal(false)
+      setGoalError('')
+    } else setGoalError('The goal window is closed. Goals can be set from the 25th to the 5th.')
   }
+  const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 
   const name = account?.email ? account.email.split('@')[0] : ''
   const when = (d: string) => (d === now ? 'Today' : daysBetween(d, now) === 1 ? 'Yesterday' : `${daysBetween(d, now)} days ago`)
@@ -193,26 +205,12 @@ export function Home({ go }: { go: Go }) {
             <div className="stack">
               <section className="card">
                 <div className="card-head">
-                  <h2><Icon name="target" size={18} /> Monthly goal</h2>
-                  {goal > 0 && !editingGoal && (
-                    <button className="link small" onClick={() => { setGoalInput(String(goal)); setEditingGoal(true) }}>
-                      Change
-                    </button>
-                  )}
+                  <h2><Icon name="target" size={18} /> {monthLabel(month)} goal</h2>
+                  <button className="link small" onClick={() => go('reports')}>
+                    History
+                  </button>
                 </div>
-                {editingGoal ? (
-                  <form className="inline-add" onSubmit={saveGoal}>
-                    <MoneyInput id="goal-input" value={goalInput} onChange={setGoalInput} step={data.settings.amountStep * 10} placeholder={`Amount in ${data.settings.baseCurrency}`} autoFocus label="Monthly goal" />
-                    <button className="primary" type="submit">Save</button>
-                  </form>
-                ) : goal === 0 ? (
-                  <>
-                    <p className="muted small">Set a target for each month and watch your progress.</p>
-                    <button className="ghost bordered" onClick={() => { setGoalInput(''); setEditingGoal(true) }}>
-                      Set a goal
-                    </button>
-                  </>
-                ) : (
+                {goal > 0 ? (
                   <>
                     <p className="goal-line">
                       <strong className="num">{goalPct}%</strong> <span className="muted">of {money(goal)}</span>
@@ -222,6 +220,41 @@ export function Home({ go }: { go: Go }) {
                     </span>
                     <p className="muted small">{goalPct >= 100 ? 'Goal reached. Nice work.' : `${money(Math.max(0, goal - inThis))} to go this month.`}</p>
                   </>
+                ) : (
+                  <p className="muted small">No goal set for {monthLabel(month, true)}.</p>
+                )}
+
+                {gw.open && gw.month ? (
+                  editingGoal ? (
+                    <form className="goal-form" onSubmit={submitGoal}>
+                      <label className="field">
+                        <span>Goal for {monthLabel(gw.month, true)}</span>
+                        <MoneyInput id="goal-input" value={goalInput} onChange={setGoalInput} step={data.settings.amountStep * 10} placeholder={`Amount in ${data.settings.baseCurrency}`} autoFocus />
+                      </label>
+                      {goalError && <p className="notice bad">{goalError}</p>}
+                      <div className="actions">
+                        <button type="button" className="ghost" onClick={() => setEditingGoal(false)}>Cancel</button>
+                        <button className="primary" type="submit">Save goal</button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="goal-window">
+                      <span className="badge good">Goal setting open until {fmtDay(gw.month === month ? `${month}-05` : `${gw.month}-05`)}</span>
+                      <button
+                        className="ghost bordered"
+                        onClick={() => {
+                          setGoalInput(targetGoal ? String(targetGoal) : '')
+                          setEditingGoal(true)
+                        }}
+                      >
+                        {targetGoal ? `Change ${monthLabel(gw.month)} goal (${money(targetGoal)})` : `Set goal for ${monthLabel(gw.month, true)}`}
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <p className="muted small goal-locked">
+                    <Icon name="checkin" size={14} /> You can set {monthLabel(gw.nextMonth)}'s goal from {fmtDay(gw.nextOpens)} to {fmtDay(`${gw.nextMonth}-05`)}.
+                  </p>
                 )}
               </section>
 

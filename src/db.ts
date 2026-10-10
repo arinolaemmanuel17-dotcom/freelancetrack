@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { normalizeStatus, type AppData, type ChecklistItem, type Client, type DayEntry, type Expense, type Order, type Payment, type PaymentStatus, type Settings } from './types'
+import { normalizeStatus, type MonthlyGoal, type AppData, type ChecklistItem, type Client, type DayEntry, type Expense, type Order, type Payment, type PaymentStatus, type Settings } from './types'
 import { DEFAULT_SETTINGS } from './storage'
 
 // Maps between the app's camelCase records and the database's snake_case rows.
@@ -63,6 +63,8 @@ const toExpense = (r: Row): Expense => ({
 })
 
 const toDay = (r: Row): DayEntry => ({
+  platforms: Array.isArray(r.platforms) ? (r.platforms as string[]) : [],
+  activities: Array.isArray(r.activities) ? (r.activities as string[]) : [],
   date: str(r.date),
   hours: num(r.hours) ?? 0,
   outreach: num(r.outreach) ?? 0,
@@ -79,6 +81,7 @@ const toSettings = (r: Row | null): Settings =>
         platforms: (r.platforms as string[]) ?? DEFAULT_SETTINGS.platforms,
         methods: (r.methods as string[]) ?? DEFAULT_SETTINGS.methods,
         categories: (r.categories as string[]) ?? DEFAULT_SETTINGS.categories,
+        activities: (r.activities as string[]) ?? DEFAULT_SETTINGS.activities,
         monthlyGoal: num(r.monthly_goal) ?? 0,
         amountStep: num(r.amount_step) ?? DEFAULT_SETTINGS.amountStep,
         onboarded: r.onboarded === true,
@@ -95,13 +98,14 @@ function check<T>(res: { data: T; error: { message: string } | null }): T {
 
 // Loads everything for the signed-in user. Row-level security returns only their rows.
 export async function fetchAll(): Promise<AppData> {
-  const [clients, orders, payments, expenses, days, settings] = await Promise.all([
+  const [clients, orders, payments, expenses, days, settings, goals] = await Promise.all([
     supabase.from('clients').select('*').order('name'),
     supabase.from('orders').select('*').order('created_at'),
     supabase.from('payments').select('*').order('date', { ascending: false }),
     supabase.from('expenses').select('*').order('date', { ascending: false }),
     supabase.from('day_entries').select('*').order('date', { ascending: false }),
     supabase.from('user_settings').select('*').maybeSingle(),
+    supabase.from('monthly_goals').select('month, amount').order('month'),
   ])
   return {
     clients: (check(clients) ?? []).map(toClient),
@@ -110,6 +114,7 @@ export async function fetchAll(): Promise<AppData> {
     expenses: (check(expenses) ?? []).map(toExpense),
     days: (check(days) ?? []).map(toDay),
     settings: toSettings(check(settings)),
+    goals: (check(goals) ?? []).map((g: Row): MonthlyGoal => ({ month: str(g.month), amount: num(g.amount) ?? 0 })),
     example: false,
   }
 }
@@ -181,10 +186,14 @@ export async function upsertExpense(e: Expense) {
   )
 }
 
+export async function upsertGoal(userId: string, g: MonthlyGoal) {
+  check(await supabase.from('monthly_goals').upsert({ user_id: userId, month: g.month, amount: g.amount, updated_at: new Date().toISOString() }, { onConflict: 'user_id,month' }))
+}
+
 export async function upsertDay(userId: string, d: DayEntry) {
   check(
     await supabase.from('day_entries').upsert(
-      { user_id: userId, date: d.date, hours: d.hours, outreach: d.outreach, blockers: d.blockers, notes: d.notes },
+      { user_id: userId, date: d.date, hours: d.hours, outreach: d.outreach, blockers: d.blockers, notes: d.notes, platforms: d.platforms, activities: d.activities },
       { onConflict: 'user_id,date' },
     ),
   )
@@ -200,6 +209,7 @@ export async function upsertSettings(userId: string, s: Settings) {
       platforms: s.platforms,
       methods: s.methods,
       categories: s.categories,
+      activities: s.activities,
       monthly_goal: s.monthlyGoal,
       amount_step: s.amountStep,
       onboarded: s.onboarded,
@@ -231,6 +241,7 @@ export async function eraseAll(userId: string) {
   check(await supabase.from('payments').delete().eq('user_id', userId))
   check(await supabase.from('expenses').delete().eq('user_id', userId))
   check(await supabase.from('day_entries').delete().eq('user_id', userId))
+  check(await supabase.from('monthly_goals').delete().eq('user_id', userId))
   check(await supabase.from('user_settings').delete().eq('user_id', userId))
 }
 

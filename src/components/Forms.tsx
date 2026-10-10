@@ -561,3 +561,81 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
     </Modal>
   )
 }
+
+// Tap to pick one or more from your list; "+ Add new" saves a new option for next time.
+export function ChipPicker({
+  id,
+  list,
+  selected,
+  onChange,
+  noun,
+}: {
+  id: string
+  list: 'platforms' | 'activities'
+  selected: string[]
+  onChange: (v: string[]) => void
+  noun: string
+}) {
+  const { data, updateSettings } = useStore()
+  const items = data.settings[list]
+  const [adding, setAdding] = useState(false)
+  const [text, setText] = useState('')
+  const all = [...items, ...selected.filter((s) => !items.includes(s))]
+  const toggle = (v: string) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v])
+  const add = () => {
+    const v = text.trim()
+    if (!v) return
+    const existing = items.find((i) => i.toLowerCase() === v.toLowerCase())
+    if (!existing) updateSettings({ [list]: [...items, v] })
+    const value = existing ?? v
+    if (!selected.includes(value)) onChange([...selected, value])
+    setText('')
+    setAdding(false)
+  }
+  return (
+    <div className="chips picker" role="group" aria-label={noun}>
+      {all.map((v) => (
+        <button key={v} type="button" className={selected.includes(v) ? 'chip active' : 'chip'} aria-pressed={selected.includes(v)} onClick={() => toggle(v)}>
+          {selected.includes(v) && <Check />}
+          {v}
+        </button>
+      ))}
+      {adding ? (
+        <span className="add-inline chip-add">
+          <input
+            id={id}
+            autoFocus
+            value={text}
+            placeholder={`New ${noun}`}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                add()
+              }
+              if (e.key === 'Escape') {
+                e.nativeEvent.stopPropagation()
+                setAdding(false)
+              }
+            }}
+          />
+          <button type="button" className="primary small-btn" onClick={add}>
+            Add
+          </button>
+        </span>
+      ) : (
+        <button type="button" className="chip add-chip" onClick={() => setAdding(true)}>
+          + Add new
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Check() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12l5 5 9-10" />
+    </svg>
+  )
+}

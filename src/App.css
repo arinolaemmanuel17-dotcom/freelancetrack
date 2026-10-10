@@ -416,3 +416,12 @@ button.ghost.bordered { border-color: var(--border); color: var(--text); align-s
 .checkin .checkin-notes { margin-bottom: 12px; }
 .wk-day { cursor: default; }
 .stat strong svg { vertical-align: -2px; }
+.checkin-section { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.picker .chip { display: inline-flex; align-items: center; gap: 5px; }
+.picker .chip.active { background: var(--accent); color: var(--accent-text); }
+.add-chip { border-style: dashed; color: var(--muted); }
+.chip-add input { width: 160px; padding: 6px 10px; border-radius: 999px; font-size: 13px; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.goal-form { display: flex; flex-direction: column; gap: 10px; }
+.goal-window { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.goal-locked { display: flex; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px solid var(--border); }

@@ -24,10 +24,11 @@ export function Notifications({ onOpen }: { onOpen: (page: Page, id: string) => 
     }
   }, [])
 
-  const openItem = (orderId?: string, clientId?: string) => {
+  const openItem = (orderId?: string, clientId?: string, page?: Page) => {
     setOpen(false)
     if (orderId) onOpen('order', orderId)
     else if (clientId) onOpen('client', clientId)
+    else if (page) onOpen(page, '')
   }
 
   return (
@@ -56,7 +57,7 @@ export function Notifications({ onOpen }: { onOpen: (page: Page, id: string) => 
                 key={i.id}
                 className="notif-item"
                 role="menuitem"
-                onClick={() => openItem(i.orderId, i.clientId)}
+                onClick={() => openItem(i.orderId, i.clientId, i.page)}
               >
                 <span className={`dot ${i.level}`} aria-hidden="true" />
                 <span>{i.text}</span>

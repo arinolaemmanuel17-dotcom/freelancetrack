@@ -7,9 +7,10 @@ export const DEFAULT_SETTINGS: Settings = {
   baseCurrency: 'USD',
   currencies: ['USD', 'EUR', 'GBP', 'NGN'],
   services: [],
-  platforms: ['Fiverr', 'Upwork', 'Freelancer', 'LinkedIn', 'WhatsApp', 'Instagram', 'Referral', 'Direct', 'Other'],
+  platforms: ['Fiverr', 'Upwork', 'Freelancer', 'LinkedIn', 'Facebook', 'WhatsApp', 'Instagram', 'Referral', 'Direct', 'Other'],
   methods: ['Bank', 'Cash', 'Card', 'Other'],
   categories: ['Fees', 'Data', 'Transport', 'Software', 'Other'],
+  activities: ['Worked on orders', 'Scouted for clients', 'Sent proposals', 'Created or updated a profile', 'Followed up with clients', 'Learning', 'Admin'],
   monthlyGoal: 0,
   amountStep: 10,
   altCurrency: '',
@@ -24,6 +25,7 @@ export const EMPTY_DATA: AppData = {
   payments: [],
   expenses: [],
   days: [],
+  goals: [],
   settings: DEFAULT_SETTINGS,
 }
 
@@ -38,7 +40,8 @@ export function loadData(): AppData {
       orders: (parsed.orders ?? []).map((o) => ({ ...o, status: normalizeStatus(o.status), checklist: o.checklist ?? [], completedAt: o.completedAt ?? (normalizeStatus(o.status) === 'Completed' ? (o.updatedAt ?? '').slice(0, 10) || null : null) })),
       payments: parsed.payments ?? [],
       expenses: parsed.expenses ?? [],
-      days: parsed.days ?? [],
+      days: (parsed.days ?? []).map((d) => ({ ...d, platforms: d.platforms ?? [], activities: d.activities ?? [] })),
+      goals: parsed.goals ?? [],
       settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) },
       example: parsed.example ?? false,
     }
@@ -70,6 +73,11 @@ export function exampleData(): AppData {
   const t = today()
   const d = (n: number) => addDays(t, n)
   const item = (id: string, text: string, done: boolean) => ({ id, text, done })
+  const monthKey = (offset: number) => {
+    const [y, m] = t.split('-').map(Number)
+    const dt = new Date(y, m - 1 + offset, 1)
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
+  }
   return {
     example: true,
     settings: {
@@ -110,10 +118,15 @@ export function exampleData(): AppData {
       { id: 'ex_e3', orderId: null, clientId: null, date: d(-8), amount: 8000, currency: 'NGN', rateToBase: 0.00066, category: 'Data', method: 'Bank', notes: 'Monthly data' },
       { id: 'ex_e4', orderId: 'ex_o2', clientId: 'ex_c2', date: d(-4), amount: 36, currency: 'USD', rateToBase: 1, category: 'Fees', method: 'Other', notes: 'Platform fee' },
     ],
+    goals: [
+      { month: monthKey(-2), amount: 300 },
+      { month: monthKey(-1), amount: 400 },
+      { month: monthKey(0), amount: 1500 },
+    ],
     days: [
-      { date: d(-1), hours: 5, outreach: 3, blockers: '', notes: '' },
-      { date: d(-2), hours: 3.5, outreach: 1, blockers: 'Waiting on client files', notes: '' },
-      { date: d(-3), hours: 6, outreach: 2, blockers: '', notes: '' },
+      { date: d(-1), hours: 5, outreach: 3, blockers: '', notes: '', platforms: ['Fiverr', 'LinkedIn'], activities: ['Worked on orders', 'Sent proposals'] },
+      { date: d(-2), hours: 3.5, outreach: 1, blockers: 'Waiting on client files', notes: '', platforms: ['Upwork'], activities: ['Scouted for clients'] },
+      { date: d(-3), hours: 6, outreach: 2, blockers: '', notes: '', platforms: ['Fiverr'], activities: ['Worked on orders', 'Followed up with clients'] },
     ],
   }
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../store'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/ui'
+import { ChipPicker } from '../components/Forms'
 import type { DayEntry } from '../types'
 import { addDays, checkinStreak, daysBetween, today } from '../utils'
 
@@ -113,7 +114,7 @@ export function DailyLog({ openNew }: { openNew?: boolean }) {
               <span>Day</span>
               <span className="right">Hours</span>
               <span className="right">Contacted</span>
-              <span>Notes</span>
+              <span>What you did</span>
             </div>
             {history.map((d) => (
               <div key={d.date} className={d.date === t ? 'trow history-grid selected' : 'trow history-grid'}>
@@ -129,9 +130,19 @@ export function DailyLog({ openNew }: { openNew?: boolean }) {
                   {d.outreach ? <span className="unit-sm"> {d.outreach === 1 ? 'person' : 'people'}</span> : null}
                 </span>
                 <span className="history-notes">
+                  {(d.platforms.length > 0 || d.activities.length > 0) && (
+                    <span className="tag-row">
+                      {d.activities.map((a) => (
+                        <span key={a} className="badge info">{a}</span>
+                      ))}
+                      {d.platforms.map((p) => (
+                        <span key={p} className="badge">{p}</span>
+                      ))}
+                    </span>
+                  )}
                   {d.blockers && <span className="badge warn">Blocked: {d.blockers}</span>}
                   {d.notes && <span className="muted small">{d.notes}</span>}
-                  {!d.blockers && !d.notes && <span className="muted small">–</span>}
+                  {!d.blockers && !d.notes && !d.platforms.length && !d.activities.length && <span className="muted small">–</span>}
                 </span>
               </div>
             ))}
@@ -177,7 +188,7 @@ export function CheckInModal({ onClose }: { onClose: () => void }) {
   const { data, saveDay } = useStore()
   const t = today()
   const existing = data.days.find((d) => d.date === t)
-  const [form, setForm] = useState<DayEntry>(existing ?? { date: t, hours: 0, outreach: 0, blockers: '', notes: '' })
+  const [form, setForm] = useState<DayEntry>(existing ?? { date: t, hours: 0, outreach: 0, blockers: '', notes: '', platforms: [], activities: [] })
   const [showNotes, setShowNotes] = useState(!!(existing?.notes || existing?.blockers))
   const set = (patch: Partial<DayEntry>) => setForm((f) => ({ ...f, ...patch }))
 
@@ -204,6 +215,15 @@ export function CheckInModal({ onClose }: { onClose: () => void }) {
             <Stepper id="checkin-outreach" label="People contacted" value={form.outreach} onChange={(v) => set({ outreach: Math.round(v) })} step={1} unit="people" />
             <p className="muted small">Clients, leads, editors, anyone you messaged about work.</p>
           </div>
+        </div>
+
+        <div className="checkin-section">
+          <span className="checkin-label">Where did you work today?</span>
+          <ChipPicker id="checkin-new-platform" list="platforms" noun="platform" selected={form.platforms} onChange={(v) => set({ platforms: v })} />
+        </div>
+        <div className="checkin-section">
+          <span className="checkin-label">What did you do?</span>
+          <ChipPicker id="checkin-new-activity" list="activities" noun="activity" selected={form.activities} onChange={(v) => set({ activities: v })} />
         </div>
 
         {showNotes ? (

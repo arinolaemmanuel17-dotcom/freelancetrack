@@ -93,6 +93,13 @@ export interface DayEntry {
   outreach: number
   blockers: string
   notes: string
+  platforms: string[] // where you worked that day
+  activities: string[] // what you did that day
+}
+
+export interface MonthlyGoal {
+  month: string // YYYY-MM
+  amount: number // in base currency
 }
 
 export interface Settings {
@@ -102,6 +109,7 @@ export interface Settings {
   platforms: string[]
   methods: string[]
   categories: string[] // expense categories
+  activities: string[] // check-in activities
   monthlyGoal: number // in base currency; 0 means no goal set
   amountStep: number // how much +/− and arrow keys change money amounts
   altCurrency: string // second currency to view totals in ('' = none)
@@ -116,6 +124,7 @@ export interface AppData {
   payments: Payment[]
   expenses: Expense[]
   days: DayEntry[]
+  goals: MonthlyGoal[]
   settings: Settings
   example?: boolean // true while the app shows made-up example records
 }

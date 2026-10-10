@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
 import { useStore } from '../store'
-import { ConfirmButton, Field, MoneyInput } from '../components/ui'
+import { ConfirmButton, Field } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { DEFAULT_SETTINGS } from '../storage'
 import { downloadCsv, today } from '../utils'
@@ -21,7 +21,7 @@ export function Settings() {
   const [platforms, setPlatforms] = useState(s.platforms.join(', '))
   const [methods, setMethods] = useState(s.methods.join(', '))
   const [categories, setCategories] = useState(s.categories.join(', '))
-  const [goal, setGoal] = useState(s.monthlyGoal ? String(s.monthlyGoal) : '')
+  const [activities, setActivities] = useState(s.activities.join(', '))
   const [step, setStep] = useState(String(s.amountStep))
   const [alt, setAlt] = useState(s.altCurrency)
   const [altRateIn, setAltRateIn] = useState(s.altRate ? String(s.altRate) : '')
@@ -39,7 +39,7 @@ export function Settings() {
       platforms: splitList(platforms),
       methods: splitList(methods),
       categories: splitList(categories),
-      monthlyGoal: Math.max(0, Number(goal) || 0),
+      activities: splitList(activities),
       amountStep: Number(step) > 0 ? Number(step) : 10,
       altCurrency: /^[A-Z]{3}$/.test(alt.trim().toUpperCase()) && alt.trim().toUpperCase() !== baseCode ? alt.trim().toUpperCase() : '',
       altRate: Math.max(0, Number(altRateIn) || 0),
@@ -105,9 +105,6 @@ export function Settings() {
           <Field label="Main currency (totals are shown in this)">
             <input id="set-base" value={base} onChange={(e) => setBase(e.target.value)} maxLength={3} />
           </Field>
-          <Field label="Monthly income goal">
-            <MoneyInput id="set-goal" value={goal} onChange={setGoal} step={(Number(step) || 10) * 10} placeholder="0 = no goal" />
-          </Field>
           <Field label="Step for the + and − buttons on amounts">
             <select id="set-step" value={step} onChange={(e) => setStep(e.target.value)}>
               {['1', '5', '10', '50', '100', '500', '1000', '5000'].map((v) => (
@@ -141,7 +138,10 @@ export function Settings() {
           <Field label="Services you offer" wide>
             <input id="set-services" value={services} onChange={(e) => setServices(e.target.value)} />
           </Field>
-          <Field label="Where clients come from" wide>
+          <Field label="Check-in activities (what you do in a day)" wide>
+            <input id="set-activities" value={activities} onChange={(e) => setActivities(e.target.value)} />
+          </Field>
+          <Field label="Platforms (where clients come from and where you work)" wide>
             <input id="set-platforms" value={platforms} onChange={(e) => setPlatforms(e.target.value)} />
           </Field>
           <Field label="Flag a client after this many quiet days">
@@ -156,6 +156,7 @@ export function Settings() {
               setPlatforms(DEFAULT_SETTINGS.platforms.join(', '))
               setMethods(DEFAULT_SETTINGS.methods.join(', '))
               setCategories(DEFAULT_SETTINGS.categories.join(', '))
+              setActivities(DEFAULT_SETTINGS.activities.join(', '))
             }}
           >
             Reset lists to defaults
