@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../supabase'
 import { Field } from '../components/ui'
+import logo from '../assets/logo-mark.png?inline'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
@@ -47,7 +48,7 @@ export function AuthScreen() {
   return (
     <div className="auth">
       <div className="auth-card">
-        <div className="brand">Freelance Tracker</div>
+        <Brand />
         <h1>{title}</h1>
         <p className="muted small">
           {mode === 'signup'
@@ -118,7 +119,7 @@ export function NewPasswordScreen({ onDone }: { onDone: () => void }) {
   return (
     <div className="auth">
       <div className="auth-card">
-        <div className="brand">Freelance Tracker</div>
+        <Brand />
         <h1>Set a new password</h1>
         <form className="form one" onSubmit={submit}>
           <Field label="New password (at least 8 characters)" wide>
@@ -130,6 +131,18 @@ export function NewPasswordScreen({ onDone }: { onDone: () => void }) {
           </button>
         </form>
       </div>
+    </div>
+  )
+}
+
+function Brand() {
+  return (
+    <div className="auth-brand">
+      <img src={logo} alt="" />
+      <span className="wordmark">
+        <span>Freelance</span>
+        <span className="accent-word">Tracker</span>
+      </span>
     </div>
   )
 }

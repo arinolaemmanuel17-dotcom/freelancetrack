@@ -23,7 +23,7 @@ export function StatusPill({ status }: { status: OrderStatus }) {
   return <Badge tone={TONE[status]}>{status}</Badge>
 }
 
-type View = 'open' | 'overdue' | 'unpaid' | 'all' | OrderStatus
+type View = 'open' | 'overdue' | 'all' | OrderStatus
 
 function dueLabel(o: Order, now: string): { text: string; tone: 'bad' | 'warn' | 'muted' } | null {
   if (!o.dueDate || !OPEN_STATUSES.includes(o.status)) return null
@@ -46,7 +46,6 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
     return {
       open: open.length,
       overdue: open.filter((o) => o.dueDate && o.dueDate < now && OPEN_STATUSES.includes(o.status)).length,
-      unpaid: data.orders.filter((o) => o.status === 'Completed' && (orderBalance(data, o) ?? 0) > 0).length,
     }
   }, [data, now])
 
@@ -56,7 +55,6 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
       .filter((o) => {
         if (view === 'open') return !['Completed', 'Cancelled'].includes(o.status)
         if (view === 'overdue') return !!o.dueDate && o.dueDate < now && OPEN_STATUSES.includes(o.status)
-        if (view === 'unpaid') return o.status === 'Completed' && (orderBalance(data, o) ?? 0) > 0
         if (view === 'all') return true
         return o.status === view
       })
@@ -67,7 +65,6 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
   const chips: { id: View; label: string; count?: number }[] = [
     { id: 'open', label: 'Open', count: counts.open },
     { id: 'overdue', label: 'Overdue', count: counts.overdue },
-    { id: 'unpaid', label: 'Completed, not paid', count: counts.unpaid },
     { id: 'all', label: 'All' },
   ]
 
@@ -148,7 +145,7 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
 }
 
 export function OrderDetail({ go, id }: { go: Go; id: string }) {
-  const { data, saveOrder } = useStore()
+  const { data, saveOrder, settleOrder } = useStore()
   const [editing, setEditing] = useState(false)
   const [paying, setPaying] = useState(false)
   const [spending, setSpending] = useState(false)
@@ -212,6 +209,17 @@ export function OrderDetail({ go, id }: { go: Go; id: string }) {
           </button>
         </div>
       </div>
+
+      {order.status === 'Completed' && bal !== null && bal > 0 && (
+        <div className="banner" role="status">
+          <span className="grow">
+            This order is completed, so it should be fully paid. {formatMoney(bal, order.currency)} isn't recorded as received yet.
+          </span>
+          <button className="primary" onClick={() => settleOrder(order.id)}>
+            Record {formatMoney(bal, order.currency)} as received
+          </button>
+        </div>
+      )}
 
       <div className="stats">
         <div className="stat">

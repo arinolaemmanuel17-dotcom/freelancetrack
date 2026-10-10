@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { AppData, Client, DayEntry, Expense, Order, Payment, Settings } from './types'
 import { EMPTY_DATA, exampleData, loadData, newId, saveData } from './storage'
 import * as db from './db'
-import { altRate, formatMoney, today } from './utils'
+import { altRate, formatMoney, orderBalance, rateFor, today } from './utils'
 
 export interface Account {
   userId: string
@@ -36,6 +36,7 @@ interface StoreValue {
   markContact: (clientId: string, date?: string) => void
   saveOrder: (o: Partial<Order> & Pick<Order, 'clientId' | 'title'>) => string
   deleteOrder: (id: string) => void
+  settleOrder: (id: string) => number // records what's still owed as received; returns the amount
   savePayment: (p: Partial<Payment> & Pick<Payment, 'amount' | 'currency'>) => string
   deletePayment: (id: string) => void
   saveExpense: (e: Partial<Expense> & Pick<Expense, 'amount' | 'currency'>) => string
@@ -120,6 +121,38 @@ export function StoreProvider({ account, children }: { account?: Account | null;
         setError(`${label} wasn't saved: ${e.message}`)
         reload()
       })
+    }
+
+    // Marks an order as fully paid: expected payments for it become received,
+    // and any remaining balance is recorded as a payment received today.
+    const settle = (order: Order, d0: AppData): number => {
+      const expected = d0.payments.filter((p) => p.orderId === order.id && p.status === 'Expected')
+      const received = expected.map((p) => ({ ...p, status: 'Received' as const }))
+      const after: AppData = { ...d0, payments: d0.payments.map((p) => received.find((r) => r.id === p.id) ?? p) }
+      const bal = orderBalance(after, order) ?? 0
+      const extra: Payment[] = []
+      if (bal > 0.004) {
+        const lastMethod = [...d0.payments].sort((a, b) => b.date.localeCompare(a.date))[0]?.method ?? ''
+        extra.push({
+          id: newId(),
+          orderId: order.id,
+          clientId: order.clientId,
+          date: today(),
+          amount: Math.round(bal * 100) / 100,
+          currency: order.currency,
+          rateToBase: rateFor(d0, order.currency) ?? 0,
+          method: lastMethod,
+          status: 'Received',
+          notes: 'Recorded when the order was marked Completed',
+        })
+      }
+      if (!received.length && !extra.length) return 0
+      setData((d) => ({
+        ...d,
+        payments: [...d.payments.map((p) => received.find((r) => r.id === p.id) ?? p), ...extra],
+      }))
+      for (const p of [...received, ...extra]) persist('The payment', () => db.upsertPayment(p))
+      return extra[0]?.amount ?? 0
     }
 
     const ar = altRate(data)
@@ -220,7 +253,15 @@ export function StoreProvider({ account, children }: { account?: Account | null;
         }
         setData((d) => ({ ...d, orders: [...d.orders.filter((x) => x.id !== id), row] }))
         persist('The order', () => db.upsertOrder(row))
+        // Completed means paid: settle whatever is still owed.
+        if (row.status === 'Completed' && existing?.status !== 'Completed') settle(row, { ...d0, orders: [...d0.orders.filter((x) => x.id !== id), row] })
         return id
+      },
+
+      settleOrder(id) {
+        const d0 = dataRef.current
+        const order = d0.orders.find((o) => o.id === id)
+        return order ? settle(order, d0) : 0
       },
 
       deleteOrder(id) {

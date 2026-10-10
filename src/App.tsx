@@ -17,6 +17,7 @@ import { ClientForm, ExpenseForm, OrderForm, PaymentForm } from './components/Fo
 import { Icon } from './components/Icon'
 import { CurrencySwitch } from './components/CurrencySwitch'
 import { SetupWelcome } from './components/Setup'
+import logo from './assets/logo-mark.png?inline'
 import './App.css'
 
 export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings'
@@ -59,8 +60,11 @@ function Shell() {
     <div className="shell">
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
-          <span className="logo" aria-hidden="true">FT</span>
-          <span>Freelance Tracker</span>
+          <img className="logo-img" src={logo} alt="" />
+          <span className="wordmark">
+            <span>Freelance</span>
+            <span className="accent-word">Tracker</span>
+          </span>
         </div>
         <QuickAdd onPick={onQuick} />
         <nav className="side-nav">
@@ -86,7 +90,7 @@ function Shell() {
       <div className="main-col">
         <header className="topbar">
           <div className="brand mobile-only">
-            <span className="logo" aria-hidden="true">FT</span>
+            <img className="logo-img" src={logo} alt="Freelance Tracker" />
           </div>
           <Search onOpen={(page, id) => go(page, id)} />
           <CurrencySwitch />
