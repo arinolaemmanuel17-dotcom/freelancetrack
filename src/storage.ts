@@ -48,8 +48,14 @@ export function saveData(data: AppData): void {
   }
 }
 
-export function newId(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
+// Record ids are UUIDs so the same record id works locally and in the database.
+export function newId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  // Fallback for older browsers: random version-4 UUID.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
+    const r = (Math.random() * 16) | 0
+    return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+  })
 }
 
 // Made-up records so a new user can see how the app works. Marked with

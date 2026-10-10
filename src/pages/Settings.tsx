@@ -11,7 +11,7 @@ const splitList = (s: string) =>
     .filter(Boolean)
 
 export function Settings() {
-  const { data, updateSettings, resetAll, loadExamples } = useStore()
+  const { data, updateSettings, resetAll, loadExamples, mode, account } = useStore()
   const preview = import.meta.env.VITE_PREVIEW === '1'
   const s = data.settings
   const [base, setBase] = useState(s.baseCurrency)
@@ -98,13 +98,15 @@ export function Settings() {
               Export CSV
             </button>
           )}
-          <button className="ghost" onClick={() => { loadExamples(); setMessage('Example data loaded') }}>
-            Load example data
-          </button>
+          {mode === 'local' && (
+            <button className="ghost" onClick={() => { loadExamples(); setMessage('Example data loaded') }}>
+              Load example data
+            </button>
+          )}
           <span className="grow" />
           <ConfirmButton
             label="Erase all data"
-            question="Erase all clients, orders, payments and check-ins on this device?"
+            question={mode === 'cloud' ? 'Erase all clients, orders, payments and check-ins in your account?' : 'Erase all clients, orders, payments and check-ins on this device?'}
             onConfirm={() => {
               resetAll()
               setMessage('All data erased')
@@ -112,6 +114,18 @@ export function Settings() {
           />
         </div>
       </section>
+
+      {account && (
+        <section className="card">
+          <h2>Account</h2>
+          <div className="actions">
+            <span className="grow">Signed in as <strong>{account.email}</strong></span>
+            <button className="ghost" onClick={account.signOut}>
+              Sign out
+            </button>
+          </div>
+        </section>
+      )}
 
       {message && <p className="muted">{message}</p>}
     </div>

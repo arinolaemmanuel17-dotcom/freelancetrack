@@ -3,7 +3,7 @@ import { formatMoney, monthOf, toBase, today } from '../utils'
 import type { Page } from '../App'
 
 export function Home({ go }: { go: (p: Page, id?: string | null) => void }) {
-  const { data, resetAll, loadExamples } = useStore()
+  const { data, resetAll, loadExamples, mode } = useStore()
   const month = monthOf(today())
   const base = data.settings.baseCurrency
 
@@ -45,9 +45,11 @@ export function Home({ go }: { go: (p: Page, id?: string | null) => void }) {
             <button className="primary" onClick={() => go('clients', 'new')}>
               Add your first client
             </button>
-            <button className="ghost" onClick={loadExamples}>
-              Load example data
-            </button>
+            {mode === 'local' && (
+              <button className="ghost" onClick={loadExamples}>
+                Load example data
+              </button>
+            )}
           </div>
         </section>
       ) : (

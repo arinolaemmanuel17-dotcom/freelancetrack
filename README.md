@@ -18,11 +18,27 @@ A tracker for freelancers: clients, orders, payments, daily check-ins, and a "Ne
 - Settings for your own currencies, services, platforms, and payment methods
 - CSV export of all data
 
-## Where the data is
+## Accounts and data
 
-For now, data is saved in this browser (localStorage). Export a CSV backup from Settings regularly.
-Login and a hosted database are the next step.
+- Sign up and sign in with email and password (Supabase Auth).
+- Data is stored in Supabase Postgres. Every table has row-level security, so each
+  user can only read and change their own rows. Anonymous requests are refused.
+- `src/supabase.ts` holds the project URL and the publishable key. Both are public by
+  design. Never put the secret or service_role key in this app.
+- You can override them with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`.
+
+### Before other people can sign up
+
+- Supabase's built-in email sender only delivers to your own Supabase team, about
+  2 emails an hour. Set up a custom SMTP provider (Authentication > Emails > SMTP).
+- Set the Site URL and redirect URLs to the live address
+  (Authentication > URL Configuration), so confirmation and reset links open the app.
+
+## Preview build
+
+`VITE_PREVIEW=1 npm run build` makes a browser-only version with example data and no
+sign-in, for demos.
 
 ## Stack
 
-TypeScript, React, Vite.
+TypeScript, React, Vite, Supabase.
