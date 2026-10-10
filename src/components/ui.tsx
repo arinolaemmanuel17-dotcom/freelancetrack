@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
@@ -48,5 +48,37 @@ export function Options({ values }: { values: string[] }) {
         </option>
       ))}
     </>
+  )
+}
+
+// Two-step delete: the first tap asks, the second tap does it.
+// Built into the page because some viewers block pop-up confirm dialogs.
+export function ConfirmButton({
+  label,
+  question,
+  onConfirm,
+}: {
+  label: string
+  question: string
+  onConfirm: () => void
+}) {
+  const [asking, setAsking] = useState(false)
+  if (!asking) {
+    return (
+      <button type="button" className="danger" onClick={() => setAsking(true)}>
+        {label}
+      </button>
+    )
+  }
+  return (
+    <span className="confirm" role="group" aria-label={question}>
+      <span className="small">{question}</span>
+      <button type="button" className="danger solid" onClick={onConfirm} autoFocus>
+        Yes, delete
+      </button>
+      <button type="button" className="ghost" onClick={() => setAsking(false)}>
+        No
+      </button>
+    </span>
   )
 }

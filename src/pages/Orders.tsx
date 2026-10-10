@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useStore } from '../store'
-import { Badge, Empty, Field, Modal, Options } from '../components/ui'
+import { Badge, ConfirmButton, Empty, Field, Modal, Options } from '../components/ui'
 import { ORDER_STATUSES, type Order, type OrderStatus } from '../types'
 import { attentionItems, clientName, formatMoney, receivedFor, today } from '../utils'
 
@@ -177,18 +177,14 @@ function OrderForm({ order, onClose, onDone }: { order: Order | null; onClose: (
         </Field>
         <div className="actions">
           {order && (
-            <button
-              type="button"
-              className="danger"
-              onClick={() => {
-                if (window.confirm(`Delete "${order.title}" and its payments?`)) {
-                  deleteOrder(order.id)
-                  onDone()
-                }
+            <ConfirmButton
+              label="Delete"
+              question="Delete this order and its payments?"
+              onConfirm={() => {
+                deleteOrder(order.id)
+                onDone()
               }}
-            >
-              Delete
-            </button>
+            />
           )}
           <span className="grow" />
           <button type="button" className="ghost" onClick={onClose}>

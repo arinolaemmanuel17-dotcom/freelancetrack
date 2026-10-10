@@ -56,7 +56,7 @@ function Shell() {
       </nav>
 
       <main key={route.key}>
-        {route.page === 'home' && <Home />}
+        {route.page === 'home' && <Home go={(p, id) => go(p, id ?? null)} />}
         {route.page === 'clients' && <Clients initialId={route.id} />}
         {route.page === 'orders' && <Orders initialId={route.id} />}
         {route.page === 'money' && <Money initialId={route.id} />}
@@ -65,7 +65,7 @@ function Shell() {
       </main>
 
       <footer className="foot muted small">
-        Saved on this device for now. Export a CSV backup from Settings.
+        Your data is saved in this browser only, for now.
       </footer>
     </div>
   )

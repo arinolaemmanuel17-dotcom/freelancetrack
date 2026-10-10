@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useStore } from '../store'
-import { Empty, Field, Modal, Badge } from '../components/ui'
+import { Empty, Field, Modal, Badge, ConfirmButton } from '../components/ui'
 import { OPEN_STATUSES, type Client } from '../types'
 import { daysBetween, today } from '../utils'
 
@@ -65,10 +65,8 @@ export function Clients({ initialId }: { initialId?: string | null }) {
             editing === 'new'
               ? undefined
               : () => {
-                  if (window.confirm(`Delete ${editing.name} and all their orders and payments?`)) {
-                    deleteClient(editing.id)
-                    setEditing(null)
-                  }
+                  deleteClient(editing.id)
+                  setEditing(null)
                 }
           }
         />
@@ -122,9 +120,7 @@ function ClientForm({
         </Field>
         <div className="actions">
           {onDelete && (
-            <button type="button" className="danger" onClick={onDelete}>
-              Delete
-            </button>
+            <ConfirmButton label="Delete" question="Delete this client and all their orders and payments?" onConfirm={onDelete} />
           )}
           <span className="grow" />
           <button type="button" className="ghost" onClick={onClose}>

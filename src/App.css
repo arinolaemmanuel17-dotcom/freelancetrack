@@ -3,7 +3,7 @@
 .topbar {
   display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
   padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
 }
 .brand { font-weight: 700; margin-right: auto; }
 
@@ -92,17 +92,17 @@ button.link:hover { text-decoration: underline; }
 
 @media (max-width: 640px) {
   .form { grid-template-columns: 1fr; }
-  .topbar { padding: 10px; }
-  .page { padding: 12px; }
-  .nav { padding: 6px 10px; }
-  .search { max-width: none; flex-basis: 100%; }
+  .topbar { padding: 10px 16px; }
+  .page { padding: 16px; }
+  .nav { padding: 6px 16px; }
+  .search { max-width: none; flex-basis: 100%; order: 3; }
 }
 
 /* Notifications bell */
 .notif { position: relative; }
 .bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; color: var(--text); }
 .count { position: absolute; top: -2px; right: -2px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; border: 2px solid var(--surface); }
-.count.urgent { background: var(--bad); color: #fff; }
+.count.urgent { background: var(--bad); color: var(--bg); }
 .notif-panel {
   position: absolute; right: 0; top: calc(100% + 6px); width: min(340px, 90vw); max-height: 60vh; overflow-y: auto;
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.15); z-index: 30;
@@ -115,3 +115,9 @@ button.link:hover { text-decoration: underline; }
 .dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; background: var(--muted); }
 .dot.high { background: var(--bad); }
 .dot.medium { background: var(--warn); }
+
+/* In-page confirm, example banner, welcome card */
+.confirm { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+button.danger.solid { background: var(--bad); color: var(--bg); border-color: transparent; }
+.banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; background: var(--warn-bg); color: var(--warn); font-size: 14px; }
+.welcome p { max-width: 60ch; margin: 0; }

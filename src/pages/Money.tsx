@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useStore } from '../store'
-import { Badge, Empty, Field, Modal, Options } from '../components/ui'
+import { Badge, ConfirmButton, Empty, Field, Modal, Options } from '../components/ui'
 import type { Payment, PaymentStatus } from '../types'
 import { clientName, formatMoney, monthOf, orderTitle, toBase, today } from '../utils'
 
@@ -169,18 +169,14 @@ function PaymentForm({ payment, onClose }: { payment: Payment | null; onClose: (
         </Field>
         <div className="actions">
           {payment && (
-            <button
-              type="button"
-              className="danger"
-              onClick={() => {
-                if (window.confirm('Delete this payment?')) {
-                  deletePayment(payment.id)
-                  onClose()
-                }
+            <ConfirmButton
+              label="Delete"
+              question="Delete this payment?"
+              onConfirm={() => {
+                deletePayment(payment.id)
+                onClose()
               }}
-            >
-              Delete
-            </button>
+            />
           )}
           <span className="grow" />
           <button type="button" className="ghost" onClick={onClose}>

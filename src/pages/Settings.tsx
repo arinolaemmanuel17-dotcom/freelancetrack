@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../store'
-import { Field } from '../components/ui'
+import { ConfirmButton, Field } from '../components/ui'
 import { DEFAULT_SETTINGS } from '../storage'
 import { downloadCsv, today } from '../utils'
 
@@ -11,7 +11,8 @@ const splitList = (s: string) =>
     .filter(Boolean)
 
 export function Settings() {
-  const { data, updateSettings } = useStore()
+  const { data, updateSettings, resetAll, loadExamples } = useStore()
+  const preview = import.meta.env.VITE_PREVIEW === '1'
   const s = data.settings
   const [base, setBase] = useState(s.baseCurrency)
   const [currencies, setCurrencies] = useState(s.currencies.join(', '))
@@ -88,23 +89,27 @@ export function Settings() {
 
       <section className="card">
         <h2>Your data</h2>
-        <p className="muted small">Download everything as CSV, so you can open it in Excel anytime.</p>
+        <p className="muted small">Download everything as CSV to open in Excel, load example records to try the app, or erase everything on this device.</p>
         <div className="actions">
-          <button className="primary" onClick={exportAll}>
-            Export CSV
+          {preview ? (
+            <span className="muted small">Export downloads are turned off in this preview. They work in the full app.</span>
+          ) : (
+            <button className="primary" onClick={exportAll}>
+              Export CSV
+            </button>
+          )}
+          <button className="ghost" onClick={() => { loadExamples(); setMessage('Example data loaded') }}>
+            Load example data
           </button>
           <span className="grow" />
-          <button
-            className="danger"
-            onClick={() => {
-              if (window.confirm('Delete ALL clients, orders, payments and check-ins on this device? This cannot be undone.')) {
-                localStorage.removeItem('freelance-tracker-v1')
-                window.location.reload()
-              }
+          <ConfirmButton
+            label="Erase all data"
+            question="Erase all clients, orders, payments and check-ins on this device?"
+            onConfirm={() => {
+              resetAll()
+              setMessage('All data erased')
             }}
-          >
-            Erase all data
-          </button>
+          />
         </div>
       </section>
 

@@ -85,4 +85,5 @@ export interface AppData {
   payments: Payment[]
   days: DayEntry[]
   settings: Settings
+  example?: boolean // true while the app shows made-up example records
 }

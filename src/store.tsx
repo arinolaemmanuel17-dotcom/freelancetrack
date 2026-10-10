@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { AppData, Client, DayEntry, Order, Payment, Settings } from './types'
-import { loadData, newId, saveData } from './storage'
+import { EMPTY_DATA, exampleData, loadData, newId, saveData } from './storage'
 import { today } from './utils'
 
 interface StoreValue {
@@ -14,6 +14,8 @@ interface StoreValue {
   deletePayment: (id: string) => void
   saveDay: (d: DayEntry) => void
   updateSettings: (s: Partial<Settings>) => void
+  resetAll: () => void
+  loadExamples: () => void
 }
 
 const StoreContext = createContext<StoreValue | null>(null)
@@ -135,6 +137,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       updateSettings(s) {
         setData((d) => ({ ...d, settings: { ...d.settings, ...s } }))
+      },
+
+      resetAll() {
+        setData({ ...EMPTY_DATA, example: false })
+      },
+
+      loadExamples() {
+        setData(exampleData())
       },
     }
   }, [data])
