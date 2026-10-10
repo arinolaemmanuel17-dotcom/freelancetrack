@@ -31,7 +31,7 @@ const toOrder = (r: Row): Order => ({
   dueDate: (r.due_date as string | null) ?? null,
   notes: str(r.notes),
   checklist: Array.isArray(r.checklist) ? (r.checklist as ChecklistItem[]) : [],
-  completedAt: (r.completed_at as string | null) ?? null,
+  completedAt: (r.completed_at as string | null) ?? (normalizeStatus(str(r.status)) === 'Completed' ? str(r.updated_at).slice(0, 10) || null : null),
   createdAt: str(r.created_at),
   updatedAt: str(r.updated_at),
 })

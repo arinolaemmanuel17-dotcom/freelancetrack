@@ -284,7 +284,14 @@ export function StoreProvider({ account, children }: { account?: Account | null;
           updatedAt: now(),
         }
         // Remember when it was completed (kept while it stays Completed).
-        row.completedAt = row.status === 'Completed' ? (existing?.status === 'Completed' ? (existing.completedAt ?? today()) : today()) : null
+        row.completedAt =
+          row.status !== 'Completed'
+            ? null
+            : o.completedAt && o.completedAt <= today()
+              ? o.completedAt
+              : existing?.status === 'Completed'
+                ? (existing.completedAt ?? today())
+                : today()
         setData((d) => ({ ...d, orders: [...d.orders.filter((x) => x.id !== id), row] }))
         persist('The order', () => db.upsertOrder(row))
         // Completed means paid: settle whatever is still owed.

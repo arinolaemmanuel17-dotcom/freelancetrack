@@ -112,7 +112,8 @@ export function exampleData(): AppData {
       { id: 'ex_p4', orderId: 'ex_o4', clientId: 'ex_c1', date: d(-28), amount: 120, currency: 'USD', rateToBase: 1, method: 'Bank', status: 'Received', notes: '' },
       { id: 'ex_p5', orderId: 'ex_o1', clientId: 'ex_c1', date: d(-9), amount: 200, currency: 'USD', rateToBase: 1, method: 'Bank', status: 'Received', notes: 'Deposit' },
       { id: 'ex_p6', orderId: 'ex_o7', clientId: 'ex_c4', date: d(-4), amount: 75000, currency: 'NGN', rateToBase: 0.00066, method: 'Bank', status: 'Received', notes: 'Half upfront' },
-      { id: 'ex_p7', orderId: 'ex_o2', clientId: 'ex_c2', date: d(3), amount: 180, currency: 'USD', rateToBase: 1, method: 'Other', status: 'Expected', notes: 'Platform clearing' },
+      { id: 'ex_p7', orderId: 'ex_o2', clientId: 'ex_c2', date: d(-4), amount: 180, currency: 'USD', rateToBase: 1, method: 'Other', status: 'Received', notes: '' },
+      { id: 'ex_p8', orderId: 'ex_o1', clientId: 'ex_c1', date: d(3), amount: 200, currency: 'USD', rateToBase: 1, method: 'Bank', status: 'Expected', notes: 'Balance on delivery' },
     ],
     expenses: [
       { id: 'ex_e1', orderId: null, clientId: null, date: d(-60), amount: 15, currency: 'USD', rateToBase: 1, category: 'Software', method: 'Card', notes: 'Design app' },

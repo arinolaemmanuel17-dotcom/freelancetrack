@@ -231,6 +231,7 @@ export function OrderForm({
   const [currency, setCurrency] = useState(order?.currency ?? seed?.currency ?? s.baseCurrency)
   const [startDate, setStartDate] = useState(order?.startDate ?? (order ? '' : today()))
   const [dueDate, setDueDate] = useState(order?.dueDate ?? '')
+  const [completedAt, setCompletedAt] = useState(order?.completedAt ?? '')
   const [notes, setNotes] = useState(order?.notes ?? '')
 
   // For a new order, picking a client fills in what they usually use.
@@ -267,6 +268,7 @@ export function OrderForm({
       currency,
       startDate: startDate || null,
       dueDate: dueDate || null,
+      completedAt: status === 'Completed' ? completedAt || today() : null,
       notes: notes.trim(),
     })
     onSaved?.(id)
@@ -321,6 +323,12 @@ export function OrderForm({
         <Field label="Due date">
           <input id="order-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </Field>
+        {status === 'Completed' && (
+          <Field label="Completed on">
+            <input id="order-completed" type="date" value={completedAt || today()} max={today()} min={startDate || undefined} onChange={(e) => setCompletedAt(e.target.value)} />
+          </Field>
+        )}
+        {status === 'Completed' && <span className="field-spacer" />}
         <Field label="Platform">
           <ListSelect id="order-platform" list="platforms" noun="platform" emptyLabel="Not set" value={platform} onChange={setPlatform} />
         </Field>

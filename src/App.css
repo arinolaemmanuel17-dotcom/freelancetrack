@@ -453,3 +453,17 @@ button.ghost.bordered { border-color: var(--border); color: var(--text); align-s
 }
 .tl-actions .danger { padding: 5px 10px; font-size: 13px; border-color: transparent; }
 .tl-actions .danger:hover { border-color: var(--bad-bg); }
+
+/* Order dates */
+.dates-card { padding-block: 16px; }
+.date-steps { display: flex; align-items: flex-start; gap: 12px; }
+.date-step { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.date-step strong { font-size: 16px; }
+.date-step:not(.done) strong { color: var(--muted); font-weight: 500; }
+.date-step.final strong { color: var(--good); }
+.date-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.date-line { flex: 0 0 32px; height: 2px; margin-top: 26px; background: var(--border); border-radius: 2px; }
+@media (max-width: 520px) {
+  .date-steps { flex-direction: column; gap: 10px; }
+  .date-line { display: none; }
+}

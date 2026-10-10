@@ -19,6 +19,12 @@ const TONE: Record<OrderStatus, 'good' | 'warn' | 'bad' | 'muted' | 'info'> = {
   Cancelled: 'bad',
 }
 
+export function shortDate(d: string | null, withYear = false): string {
+  if (!d) return ''
+  const [y, m, day] = d.split('-').map(Number)
+  return new Date(y, m - 1, day).toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(withYear ? { year: 'numeric' } : {}) })
+}
+
 export function StatusPill({ status }: { status: OrderStatus }) {
   return <Badge tone={TONE[status]}>{status}</Badge>
 }
@@ -112,7 +118,7 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
           <div className="trow thead orders-grid">
             <span>Job</span>
             <span>Stage</span>
-            <span>Due</span>
+            <span>Due / done</span>
             <span className="right">Price</span>
             <span className="right">Balance</span>
           </div>
@@ -124,11 +130,23 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
                 <span className="cell-main">
                   <span>
                     <strong>{o.title}</strong>
-                    <span className="muted small block">{clientName(data, o.clientId)}{o.service ? ` · ${o.service}` : ''}</span>
+                    <span className="muted small block">
+                      {clientName(data, o.clientId)}
+                      {o.service ? ` · ${o.service}` : ''}
+                      {o.startDate ? ` · started ${shortDate(o.startDate)}` : ''}
+                    </span>
                   </span>
                 </span>
                 <span data-label="Stage"><StatusPill status={o.status} /></span>
-                <span data-label="Due">{due ? <span className={`small ${due.tone}-text`}>{due.text}</span> : <span className="muted small">{o.dueDate ?? 'No date'}</span>}</span>
+                <span data-label="Dates">
+                  {o.status === 'Completed' && o.completedAt ? (
+                    <span className="small good-text">Done {shortDate(o.completedAt)}</span>
+                  ) : due ? (
+                    <span className={`small ${due.tone}-text`}>{due.text}</span>
+                  ) : (
+                    <span className="muted small">{o.dueDate ? `Due ${shortDate(o.dueDate)}` : 'No due date'}</span>
+                  )}
+                </span>
                 <span className="right num" data-label="Price">{o.price !== null ? formatMoney(o.price, o.currency) : <span className="muted">Not agreed</span>}</span>
                 <span className="right num" data-label="Balance">
                   {bal === null ? '–' : bal > 0 ? formatMoney(bal, o.currency) : <span className="good-text">Settled</span>}
@@ -239,12 +257,42 @@ export function OrderDetail({ go, id }: { go: Go; id: string }) {
           <span>Balance due</span>
           <strong className={bal ? 'warn-text' : ''}>{bal === null ? '–' : bal > 0 ? formatMoney(bal, order.currency) : 'Settled'}</strong>
         </div>
-        <div className="stat">
-          <span>Due date</span>
-          <strong>{order.dueDate ?? 'Not set'}</strong>
-          {due && <small className={`${due.tone}-text`}>{due.text}</small>}
-        </div>
       </div>
+
+      <section className="card dates-card" aria-label="Order dates">
+        <div className="date-steps">
+          <div className={order.startDate ? 'date-step done' : 'date-step'}>
+            <span className="date-label">Started</span>
+            <strong>{order.startDate ? shortDate(order.startDate, true) : 'Not set'}</strong>
+          </div>
+          <div className="date-line" aria-hidden="true" />
+          <div className={order.dueDate ? 'date-step done' : 'date-step'}>
+            <span className="date-label">Due</span>
+            <strong>{order.dueDate ? shortDate(order.dueDate, true) : 'Not set'}</strong>
+            {due && <small className={`${due.tone}-text`}>{due.text}</small>}
+          </div>
+          <div className="date-line" aria-hidden="true" />
+          <div className={order.completedAt ? 'date-step done final' : 'date-step'}>
+            <span className="date-label">Completed</span>
+            <strong>{order.completedAt ? shortDate(order.completedAt, true) : order.status === 'Cancelled' ? 'Cancelled' : 'Not yet'}</strong>
+            {order.completedAt && order.startDate && (
+              <small className="muted">
+                Took {Math.max(0, daysBetween(order.startDate, order.completedAt))} day(s)
+                {order.dueDate
+                  ? daysBetween(order.completedAt, order.dueDate) >= 0
+                    ? `, ${daysBetween(order.completedAt, order.dueDate) === 0 ? 'on the due date' : `${daysBetween(order.completedAt, order.dueDate)} day(s) early`}`
+                    : `, ${-daysBetween(order.completedAt, order.dueDate)} day(s) late`
+                  : ''}
+              </small>
+            )}
+          </div>
+        </div>
+        {!order.startDate && (
+          <button className="link small" onClick={() => setEditing(true)}>
+            Add a start date
+          </button>
+        )}
+      </section>
 
       <div className="two-col">
         <section className="card">

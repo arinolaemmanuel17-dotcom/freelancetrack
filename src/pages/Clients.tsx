@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon'
 import { FilesCard } from '../components/Files'
 import type { Go } from '../App'
 import { clientStats, daysBetween, formatMoney, initials, orderBalance, today } from '../utils'
-import { StatusPill } from './Orders'
+import { StatusPill, shortDate } from './Orders'
 
 type Sort = 'name' | 'paid' | 'contact'
 
@@ -191,7 +191,11 @@ export function ClientDetail({ go, id }: { go: Go; id: string }) {
                 <li key={o.id} className="clickable" onClick={() => go('order', o.id)}>
                   <span className="grow">
                     <strong>{o.title}</strong>
-                    <span className="muted small block">{o.service || 'No service'}{o.dueDate ? ` · due ${o.dueDate}` : ''}</span>
+                    <span className="muted small block">
+                      {o.service || 'No service'}
+                      {o.startDate ? ` · started ${shortDate(o.startDate)}` : ''}
+                      {o.completedAt ? ` · done ${shortDate(o.completedAt)}` : o.dueDate ? ` · due ${shortDate(o.dueDate)}` : ''}
+                    </span>
                   </span>
                   <StatusPill status={o.status} />
                   <span className="num right">
