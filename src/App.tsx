@@ -7,6 +7,7 @@ import { Money } from './pages/Money'
 import { DailyLog } from './pages/DailyLog'
 import { Settings } from './pages/Settings'
 import { Search } from './components/Search'
+import { Notifications } from './components/Notifications'
 import { QuickAdd } from './components/QuickAdd'
 import './App.css'
 
@@ -38,6 +39,7 @@ function Shell() {
       <header className="topbar">
         <div className="brand">Freelance Tracker</div>
         <Search onOpen={(page, id) => go(page, id)} />
+        <Notifications onOpen={(page, id) => go(page, id)} />
         <QuickAdd onAdd={(page) => go(page, page === 'daily' ? null : 'new')} />
       </header>
 
@@ -54,7 +56,7 @@ function Shell() {
       </nav>
 
       <main key={route.key}>
-        {route.page === 'home' && <Home go={(p) => go(p)} />}
+        {route.page === 'home' && <Home />}
         {route.page === 'clients' && <Clients initialId={route.id} />}
         {route.page === 'orders' && <Orders initialId={route.id} />}
         {route.page === 'money' && <Money initialId={route.id} />}

@@ -1,16 +1,10 @@
-import { useMemo } from 'react'
 import { useStore } from '../store'
-import { attentionItems, formatMoney, monthOf, toBase, today } from '../utils'
-import { Badge, Empty } from '../components/ui'
-import type { Page } from '../App'
+import { formatMoney, monthOf, toBase, today } from '../utils'
 
-export function Home({ go }: { go: (p: Page) => void }) {
+export function Home() {
   const { data } = useStore()
-  const now = today()
-  const month = monthOf(now)
+  const month = monthOf(today())
   const base = data.settings.baseCurrency
-
-  const items = useMemo(() => attentionItems(data, now), [data, now])
 
   const received = data.payments
     .filter((p) => p.status === 'Received' && monthOf(p.date) === month)
@@ -39,30 +33,6 @@ export function Home({ go }: { go: (p: Page) => void }) {
           <strong>{openOrders}</strong>
         </div>
       </div>
-
-      <section className="card">
-        <div className="card-head">
-          <h2>Needs attention</h2>
-          <span className="muted">{items.length} item(s)</span>
-        </div>
-        {items.length === 0 ? (
-          <Empty>Nothing needs attention right now.</Empty>
-        ) : (
-          <ul className="list">
-            {items.map((i) => (
-              <li key={i.id}>
-                <Badge tone={i.level === 'high' ? 'bad' : i.level === 'medium' ? 'warn' : 'muted'}>
-                  {i.level === 'high' ? 'Urgent' : i.level === 'medium' ? 'Soon' : 'Check'}
-                </Badge>
-                <span className="grow">{i.text}</span>
-                <button className="link" onClick={() => go(i.orderId ? 'orders' : 'clients')}>
-                  Open
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
 
       <section className="card">
         <div className="card-head">
