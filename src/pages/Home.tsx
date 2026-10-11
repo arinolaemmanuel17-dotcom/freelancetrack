@@ -13,7 +13,6 @@ import {
   clientName,
   daysBetween,
   formatMoney,
-  greeting,
   lastMonths,
   monthLabel,
   monthOf,
@@ -110,8 +109,33 @@ export function Home({ go }: { go: Go }) {
   }
   const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 
-  const name = account?.email ? account.email.split('@')[0] : ''
+  const monthName = new Date(`${month}-01T12:00:00`).toLocaleDateString(undefined, { month: 'long' })
+  const firstName = account?.name ? account.name.split(/\s+/)[0] : ''
+  const brief = dailyBrief()
   const when = (d: string) => (d === now ? 'Today' : daysBetween(d, now) === 1 ? 'Yesterday' : `${daysBetween(d, now)} days ago`)
+
+  // One or two short sentences about what matters today, instead of a plain greeting.
+  function dailyBrief(): { text: string; tone?: string; go?: () => void }[] {
+    if (isEmpty) return [{ text: 'Add a client and your first order to get started' }]
+    const open = data.orders.filter((o) => OPEN_STATUSES.includes(o.status) && o.dueDate)
+    const late = open.filter((o) => (o.dueDate as string) < now)
+    const dueToday = open.filter((o) => o.dueDate === now)
+    const dueWeek = open.filter((o) => (o.dueDate as string) > now && daysBetween(now, o.dueDate as string) <= 7)
+    const out: { text: string; tone?: string; go?: () => void }[] = []
+    const one = (list: typeof open, many: string, single: string) =>
+      list.length === 1 ? { text: `“${list[0].title}” ${single}`, go: () => go('order', list[0].id) } : { text: `${list.length} orders ${many}`, go: () => go('orders') }
+
+    if (late.length) out.push({ ...one(late, 'are past due', 'is past due'), tone: 'bad-text' })
+    else if (dueToday.length) out.push({ ...one(dueToday, 'are due today', 'is due today'), tone: 'warn-text' })
+    else if (dueWeek.length) out.push(one(dueWeek, 'are due this week', 'is due this week'))
+    else if (openOrders > 0) out.push({ text: `${openOrders} open order${openOrders === 1 ? '' : 's'}, no deadlines this week` })
+    else out.push({ text: 'No open orders right now' })
+
+    if (owed > 0) out.push({ text: `${money(owed)} still to collect`, go: () => go('orders') })
+    else if (goal > 0) out.push({ text: goalPct >= 100 ? `${monthName} goal reached` : `${goalPct}% of your ${monthName} goal` })
+    else if (inThis > 0) out.push({ text: `${money(inThis)} earned so far in ${monthName}` })
+    return out
+  }
 
   return (
     <div className="page">
@@ -128,9 +152,30 @@ export function Home({ go }: { go: Go }) {
         <div>
           <p className="eyebrow">{new Date(`${now}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           <h1>
-            {greeting()}
-            {name ? `, ${name}` : ''}
+            {isEmpty ? 'Welcome' : 'Welcome back'}
+            {firstName ? `, ${firstName}` : ''}
           </h1>
+          <p className="brief">
+            {brief.map((b, i) => (
+              <span key={i} className={b.tone}>
+                {b.go ? (
+                  <button className="link inline" onClick={b.go}>
+                    {b.text}
+                  </button>
+                ) : (
+                  b.text
+                )}
+                .{' '}
+              </span>
+            ))}
+            {account && !account.name && (
+              <span className="muted">
+                <button className="link inline" onClick={() => go('settings', 'name')}>
+                  Add your name
+                </button>
+              </span>
+            )}
+          </p>
         </div>
         {!checkedToday && !isEmpty && (
           <button className="primary" onClick={() => go('daily', 'entry')}>

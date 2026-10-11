@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { StoreProvider, useStore } from './store'
+import { StoreProvider, useStore, type Account } from './store'
 import { supabase } from './supabase'
 import { AuthScreen, NewPasswordScreen } from './pages/AuthScreen'
 import { Home } from './pages/Home'
@@ -10,6 +10,7 @@ import { Money } from './pages/Money'
 import { Reports } from './pages/Reports'
 import { DailyLog } from './pages/DailyLog'
 import { Settings } from './pages/Settings'
+import { Admin } from './pages/Admin'
 import { Search } from './components/Search'
 import { Notifications } from './components/Notifications'
 import { QuickAdd, type QuickKind } from './components/QuickAdd'
@@ -21,7 +22,7 @@ import { elapsed, useNow } from './pages/DailyLog'
 import logo from './assets/logo-mark.png?inline'
 import './App.css'
 
-export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings'
+export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings' | 'admin'
 export type Go = (page: Page, id?: string | null) => void
 
 const NAV: { id: Page; label: string; icon: string; also?: Page[] }[] = [
@@ -33,6 +34,7 @@ const NAV: { id: Page; label: string; icon: string; also?: Page[] }[] = [
   { id: 'daily', label: 'Check-ins', icon: 'checkin' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ]
+const ADMIN_NAV: (typeof NAV)[number] = { id: 'admin', label: 'Admin', icon: 'shield' }
 const TABS: Page[] = ['home', 'orders', 'clients', 'money']
 
 interface Route {
@@ -46,6 +48,7 @@ function Shell() {
   const [quick, setQuick] = useState<QuickKind | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
   const { data, mode, status, error, dismissError, reload, account } = useStore()
+  const nav = account?.isAdmin ? [...NAV, ADMIN_NAV] : NAV
 
   const go: Go = (page, id = null) => {
     setMoreOpen(false)
@@ -54,7 +57,7 @@ function Shell() {
   }
 
   const onQuick = (k: QuickKind) => (k === 'checkin' ? go('daily', 'entry') : k === 'timer' ? go('daily', 'timer') : setQuick(k))
-  const isActive = (n: (typeof NAV)[number]) => route.page === n.id || !!n.also?.includes(route.page)
+  const isActive = (n: (typeof nav)[number]) => route.page === n.id || !!n.also?.includes(route.page)
   const moreActive = !TABS.includes(route.page) && !['order', 'client'].includes(route.page)
 
   return (
@@ -69,7 +72,7 @@ function Shell() {
         </div>
         <QuickAdd onPick={onQuick} />
         <nav className="side-nav">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <button key={n.id} className={isActive(n) ? 'side-link active' : 'side-link'} onClick={() => go(n.id)} aria-current={isActive(n) ? 'page' : undefined}>
               <Icon name={n.icon} />
               {n.label}
@@ -79,6 +82,7 @@ function Shell() {
         <div className="side-foot">
           {account ? (
             <>
+              {account.name && <strong className="small ellipsis">{account.name}</strong>}
               <span className="muted small ellipsis" title={account.email}>{account.email}</span>
               <button className="link small" onClick={account.signOut}>Sign out</button>
             </>
@@ -119,7 +123,8 @@ function Shell() {
             {route.page === 'money' && <Money go={go} initialId={route.id} />}
             {route.page === 'reports' && <Reports />}
             {route.page === 'daily' && <DailyLog open={route.id === 'entry' || route.id === 'new' ? 'entry' : route.id === 'timer' ? 'timer' : undefined} />}
-            {route.page === 'settings' && <Settings />}
+            {route.page === 'settings' && <Settings focus={route.id} />}
+            {route.page === 'admin' && <Admin />}
           </main>
         )}
 
@@ -145,7 +150,7 @@ function Shell() {
       {moreOpen && (
         <div className="sheet-overlay" onClick={() => setMoreOpen(false)}>
           <div className="sheet" role="menu" onClick={(e) => e.stopPropagation()}>
-            {NAV.filter((n) => !TABS.includes(n.id)).map((n) => (
+            {nav.filter((n) => !TABS.includes(n.id)).map((n) => (
               <button key={n.id} role="menuitem" onClick={() => go(n.id)}>
                 <Icon name={n.icon} /> {n.label}
               </button>
@@ -204,9 +209,36 @@ function AccountGate() {
     return () => sub.subscription.unsubscribe()
   }, [])
 
-  const account = useMemo(
-    () => (session ? { userId: session.user.id, email: session.user.email ?? '', signOut: () => void supabase.auth.signOut() } : null),
-    [session],
+  // Ask the database whether this account is the app owner. Anyone else gets false.
+  const userId = session?.user.id ?? null
+  const [adminFor, setAdminFor] = useState<string | null>(null)
+  useEffect(() => {
+    if (!userId) return
+    let live = true
+    supabase.rpc('is_admin').then(({ data, error }) => {
+      if (live) setAdminFor(!error && data === true ? userId : null)
+    })
+    return () => {
+      live = false
+    }
+  }, [userId])
+
+  const account = useMemo<Account | null>(
+    () =>
+      session
+        ? {
+            userId: session.user.id,
+            email: session.user.email ?? '',
+            name: String(session.user.user_metadata?.full_name ?? '').trim(),
+            isAdmin: adminFor === session.user.id,
+            setName: async (name: string) => {
+              const { error } = await supabase.auth.updateUser({ data: { full_name: name.trim() } })
+              return error ? error.message : null
+            },
+            signOut: () => void supabase.auth.signOut(),
+          }
+        : null,
+    [session, adminFor],
   )
 
   if (checking) return <div className="auth"><p className="muted">Loading…</p></div>

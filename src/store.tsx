@@ -7,6 +7,9 @@ import { altRate, formatMoney, goalWindow, orderBalance, rateFor, today } from '
 export interface Account {
   userId: string
   email: string
+  name: string // what the user asked to be called; '' if not set yet
+  isAdmin: boolean // only true for the app owner (checked by the database)
+  setName: (name: string) => Promise<string | null> // returns an error message, or null when saved
   signOut: () => void
 }
 

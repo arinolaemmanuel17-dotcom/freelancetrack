@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useStore } from '../store'
 import { ConfirmButton, Field } from '../components/ui'
 import { Icon } from '../components/Icon'
@@ -11,8 +11,27 @@ const splitList = (s: string) =>
     .map((x) => x.trim())
     .filter(Boolean)
 
-export function Settings() {
+export function Settings({ focus }: { focus?: string | null }) {
   const { data, updateSettings, resetAll, loadExamples, importClients, mode, account } = useStore()
+  const [name, setName] = useState(account?.name ?? '')
+  const [nameMsg, setNameMsg] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null)
+  const [savingName, setSavingName] = useState(false)
+  const nameRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (focus === 'name') nameRef.current?.focus()
+  }, [focus])
+  const saveName = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!account) return
+    if (!name.trim()) {
+      setNameMsg({ tone: 'bad', text: 'Enter a name first.' })
+      return
+    }
+    setSavingName(true)
+    const err = await account.setName(name)
+    setSavingName(false)
+    setNameMsg(err ? { tone: 'bad', text: `Couldn't save your name: ${err}` } : { tone: 'good', text: 'Name saved.' })
+  }
   const s = data.settings
   const preview = import.meta.env.VITE_PREVIEW === '1'
   const [base, setBase] = useState(s.baseCurrency)
@@ -89,6 +108,15 @@ export function Settings() {
       {account && (
         <section className="card">
           <h2>Account</h2>
+          <form className="name-form" onSubmit={saveName}>
+            <Field label="Your name (shown on Home)">
+              <input id="set-name" ref={nameRef} autoComplete="name" maxLength={60} value={name} onChange={(e) => { setName(e.target.value); setNameMsg(null) }} placeholder="e.g. Emmanuel" />
+            </Field>
+            <button className="primary" type="submit" disabled={savingName || name.trim() === account.name}>
+              {savingName ? 'Saving…' : 'Save name'}
+            </button>
+          </form>
+          {nameMsg && <p className={`notice ${nameMsg.tone}`} role="status">{nameMsg.text}</p>}
           <div className="actions">
             <span className="grow">
               Signed in as <strong>{account.email}</strong>

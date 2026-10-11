@@ -138,6 +138,95 @@ export function BarList({ rows, currency, empty, out }: { rows: { key: string; v
   )
 }
 
+// Simple daily counts (e.g. sign-ups per day). Whole numbers only.
+export function CountBars({
+  labels,
+  values,
+  title,
+  unit,
+  height = 200,
+  labelEvery = 7,
+  empty,
+}: {
+  labels: string[]
+  values: number[]
+  title: string
+  unit: [string, string] // singular, plural
+  height?: number
+  labelEvery?: number
+  empty: string
+}) {
+  const { ref, w: W } = useWidth()
+  const [hover, setHover] = useState<number | null>(null)
+  if (values.every((v) => v <= 0)) {
+    return (
+      <div className="chart-empty" ref={ref}>
+        <p>{empty}</p>
+      </div>
+    )
+  }
+  const H = height
+  const pad = { top: 14, right: 8, bottom: 26, left: 32 }
+  const innerW = W - pad.left - pad.right
+  const innerH = H - pad.top - pad.bottom
+  const ticks = niceTicks(Math.max(...values))
+  const top = ticks[ticks.length - 1]
+  const band = innerW / values.length
+  const barW = Math.max(3, Math.min(18, band * 0.7))
+  const y = (v: number) => pad.top + innerH - (v / top) * innerH
+  const last = values.length - 1
+  const word = (n: number) => `${n} ${n === 1 ? unit[0] : unit[1]}`
+
+  return (
+    <figure className="chart" aria-label={title}>
+      <div className="chart-wrap" ref={ref}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} className="chart-svg" onMouseLeave={() => setHover(null)}>
+          {ticks.map((t) => (
+            <g key={t}>
+              <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} className="grid" />
+              <text x={pad.left - 8} y={y(t) + 4} textAnchor="end" className="tick">
+                {t}
+              </text>
+            </g>
+          ))}
+          {values.map((v, i) => {
+            const bx = pad.left + band * i + (band - barW) / 2
+            const showLabel = (last - i) % labelEvery === 0
+            return (
+              <g key={i} onMouseEnter={() => setHover(i)} onClick={() => setHover(hover === i ? null : i)}>
+                <rect x={pad.left + band * i} y={pad.top} width={band} height={innerH} fill="transparent" />
+                <path d={roundTop(bx, y(v), barW, pad.top + innerH - y(v))} fill="var(--series-1)" opacity={hover === null || hover === i ? 1 : 0.45} />
+                {showLabel && (
+                  <text x={pad.left + band * i + band / 2} y={H - 8} textAnchor={i === last ? 'end' : 'middle'} className="tick">
+                    {labels[i]}
+                  </text>
+                )}
+              </g>
+            )
+          })}
+        </svg>
+        {hover !== null && (
+          <div className="tooltip" style={{ left: `${Math.min(85, Math.max(15, ((pad.left + band * hover + band / 2) / W) * 100))}%` }} role="status">
+            <strong>{labels[hover]}</strong>
+            <span className="tip-row">{word(values[hover])}</span>
+          </div>
+        )}
+      </div>
+      <table className="sr-only">
+        <caption>{title}</caption>
+        <tbody>
+          {labels.map((l, i) => (
+            <tr key={l}>
+              <td>{l}</td>
+              <td>{word(values[i])}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </figure>
+  )
+}
+
 function roundTop(x: number, y: number, w: number, h: number): string {
   if (h <= 0) return ''
   const r = Math.min(4, w / 2, h)

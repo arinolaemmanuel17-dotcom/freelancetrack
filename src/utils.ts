@@ -367,11 +367,6 @@ export function compactMoney(amount: number, currency: string): string {
   }
 }
 
-export function greeting(): string {
-  const h = new Date().getHours()
-  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
-}
-
 export function initials(name: string): string {
   const parts = name.replace(/^example:\s*/i, '').trim().split(/\s+/)
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?'

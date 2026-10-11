@@ -7,6 +7,7 @@ type Mode = 'signin' | 'signup' | 'reset'
 
 export function AuthScreen() {
   const [mode, setMode] = useState<Mode>('signin')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -24,7 +25,7 @@ export function AuthScreen() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: window.location.origin, data: { full_name: name.trim() } },
         })
         if (error) throw error
         if (!data.session) {
@@ -58,6 +59,11 @@ export function AuthScreen() {
               : 'Welcome back.'}
         </p>
         <form className="form one" onSubmit={submit}>
+          {mode === 'signup' && (
+            <Field label="Your name" wide>
+              <input id="auth-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="What should we call you?" maxLength={60} required />
+            </Field>
+          )}
           <Field label="Email" wide>
             <input id="auth-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </Field>

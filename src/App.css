@@ -467,3 +467,32 @@ button.ghost.bordered { border-color: var(--border); color: var(--text); align-s
   .date-steps { flex-direction: column; gap: 10px; }
   .date-line { display: none; }
 }
+
+/* Home: short daily brief under the welcome */
+.brief { margin: 6px 0 0; font-size: 15px; line-height: 1.5; color: var(--text); max-width: 62ch; }
+.brief button.link.inline { font-size: inherit; font-weight: 500; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); }
+.brief button.link.inline:hover { text-decoration-color: currentColor; }
+
+/* Settings: name row */
+.name-form { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.name-form .field { flex: 1 1 240px; }
+
+/* Admin */
+.eyebrow .icon, .eyebrow svg { vertical-align: -2px; margin-right: 2px; }
+.notice.warn { background: var(--warn-bg); color: var(--warn); }
+.notice:not(.good):not(.bad):not(.warn) { background: var(--surface-2); color: var(--text); }
+.admin-notes { display: flex; flex-direction: column; gap: 8px; }
+.admin-totals li .muted { min-width: 92px; text-align: right; }
+.admin-grid { grid-template-columns: minmax(0, 2.2fr) 0.8fr 0.9fr minmax(0, 1.8fr) auto; }
+.min0 { min-width: 0; }
+.trow.admin-grid .badge { vertical-align: 1px; margin-left: 4px; }
+@media (max-width: 860px) {
+  .trow.admin-grid { grid-template-columns: auto auto 1fr !important; column-gap: 14px; }
+  .trow.admin-grid > .cell-main { grid-column: 1 / -1; }
+  .trow.admin-grid > span:nth-child(4) { grid-column: 1 / -1; }
+  .trow.admin-grid > span.right { grid-row: 2; grid-column: 3; justify-self: end; }
+}
+.m-label { display: none; }
+@media (max-width: 860px) {
+  .m-label { display: inline; color: var(--muted); }
+}

@@ -1,0 +1,4 @@
+-- Applied to project ysugwqqjhtppxtehuhew on 2026-10-11 via the Supabase MCP (migration "add_owner_admin_overview").
+-- Owner-only app stats: private.admins lists who may call private.admin_overview();
+-- public wrappers run as the caller, so non-admins hit the check and get 42501.
+-- See the live database for the exact definition.
