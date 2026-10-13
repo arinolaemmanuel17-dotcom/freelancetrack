@@ -28,7 +28,11 @@ export function AuthScreen() {
           options: { emailRedirectTo: window.location.origin, data: { full_name: name.trim() } },
         })
         if (error) throw error
-        if (!data.session) {
+        // Supabase hides existing emails: it "succeeds" but returns no identities and sends nothing.
+        if (data.user && data.user.identities?.length === 0) {
+          setMessage({ tone: 'bad', text: 'An account with this email already exists. Sign in below, or use "Forgot password?" if you can\'t remember it.' })
+          setMode('signin')
+        } else if (!data.session) {
           setMessage({ tone: 'good', text: 'Account created. Check your email and click the confirmation link, then sign in here.' })
           setMode('signin')
         }
