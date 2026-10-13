@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon'
 import { FilesCard } from '../components/Files'
 import type { Go } from '../App'
 import { ORDER_STATUSES, OPEN_STATUSES, type Order, type OrderStatus } from '../types'
-import { clientName, daysBetween, formatMoney, orderBalance, orderReceived, today } from '../utils'
+import { clientName, daysBetween, formatMoney, orderBalance, orderReceived, orderSpent, today } from '../utils'
 import { newId } from '../storage'
 
 const TONE: Record<OrderStatus, 'good' | 'warn' | 'bad' | 'muted' | 'info'> = {
@@ -37,7 +37,7 @@ function dueLabel(o: Order, now: string): { text: string; tone: 'bad' | 'warn' |
   if (d < 0) return { text: `${-d}d overdue`, tone: 'bad' }
   if (d === 0) return { text: 'Due today', tone: 'warn' }
   if (d <= 2) return { text: `Due in ${d}d`, tone: 'warn' }
-  return { text: `Due ${o.dueDate}`, tone: 'muted' }
+  return { text: `Due ${shortDate(o.dueDate)}`, tone: 'muted' }
 }
 
 export function Orders({ go, initialId }: { go: Go; initialId?: string | null }) {
@@ -120,10 +120,12 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
             <span>Stage</span>
             <span>Due / done</span>
             <span className="right">Price</span>
+            <span className="right">Spent</span>
             <span className="right">Balance</span>
           </div>
           {rows.map((o) => {
             const bal = orderBalance(data, o)
+            const spent = orderSpent(data, o)
             const due = dueLabel(o, now)
             return (
               <div key={o.id} className="trow orders-grid clickable" onClick={() => go('order', o.id)}>
@@ -147,8 +149,16 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
                     <span className="muted small">{o.dueDate ? `Due ${shortDate(o.dueDate)}` : 'No due date'}</span>
                   )}
                 </span>
-                <span className="right num" data-label="Price">{o.price !== null ? formatMoney(o.price, o.currency) : <span className="muted">Not agreed</span>}</span>
-                <span className="right num" data-label="Balance">
+                <span className="right num money-cell" data-label="Price">
+                  <span className="m-label">Price</span>
+                  {o.price !== null ? formatMoney(o.price, o.currency) : <span className="muted">Not agreed</span>}
+                </span>
+                <span className="right num money-cell" data-label="Spent">
+                  <span className="m-label">Spent</span>
+                  {spent > 0 ? <span className="bad-text">{formatMoney(spent, o.currency)}</span> : <span className="muted">–</span>}
+                </span>
+                <span className="right num money-cell" data-label="Balance">
+                  <span className="m-label">Balance</span>
                   {bal === null ? '–' : bal > 0 ? formatMoney(bal, o.currency) : <span className="good-text">Settled</span>}
                 </span>
               </div>
@@ -187,6 +197,8 @@ export function OrderDetail({ go, id }: { go: Go; id: string }) {
   const due = dueLabel(order, now)
   const payments = data.payments.filter((p) => p.orderId === id).sort((a, b) => b.date.localeCompare(a.date))
   const expenses = data.expenses.filter((e) => e.orderId === id)
+  const spent = orderSpent(data, order)
+  const profit = received - spent
   const done = order.checklist.filter((c) => c.done).length
   const pct = order.price ? Math.min(100, Math.round((received / order.price) * 100)) : 0
 
@@ -256,6 +268,15 @@ export function OrderDetail({ go, id }: { go: Go; id: string }) {
         <div className="stat">
           <span>Balance due</span>
           <strong className={bal ? 'warn-text' : ''}>{bal === null ? '–' : bal > 0 ? formatMoney(bal, order.currency) : 'Settled'}</strong>
+        </div>
+        <div className="stat">
+          <span>Spent</span>
+          <strong className={spent > 0 ? 'bad-text' : ''}>{formatMoney(spent, order.currency)}</strong>
+        </div>
+        <div className="stat">
+          <span>Profit so far</span>
+          <strong className={profit < 0 ? 'bad-text' : profit > 0 ? 'good-text' : ''}>{formatMoney(profit, order.currency)}</strong>
+          <span className="muted small">Received minus spent</span>
         </div>
       </div>
 

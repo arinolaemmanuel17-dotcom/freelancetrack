@@ -176,6 +176,18 @@ export function orderReceived(data: AppData, order: Order): number {
     }, 0)
 }
 
+// Costs linked to an order, in the order's own currency.
+export function orderSpent(data: AppData, order: Order): number {
+  const orderRate = rateFor(data, order.currency)
+  return data.expenses
+    .filter((e) => e.orderId === order.id)
+    .reduce((sum, e) => {
+      if (e.currency === order.currency) return sum + e.amount
+      if (orderRate) return sum + (e.amount * e.rateToBase) / orderRate
+      return sum
+    }, 0)
+}
+
 // What the client still owes on an order, in the order's currency (null if no price).
 export function orderBalance(data: AppData, order: Order): number | null {
   if (order.price === null) return null
