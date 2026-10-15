@@ -11,7 +11,11 @@ export function AuthScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null)
+  const [message, setMessage] = useState<{ tone: 'good' | 'bad'; text: string } | null>(() => {
+    if (new URLSearchParams(window.location.search).get('account_deleted') !== '1') return null
+    window.history.replaceState(null, '', '/')
+    return { tone: 'good', text: 'Your account and all your data have been deleted. Thanks for trying Freelance Tracker.' }
+  })
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -85,6 +89,11 @@ export function AuthScreen() {
             </Field>
           )}
           {message && <p className={`notice ${message.tone}`} role="status">{message.text}</p>}
+          {mode === 'signup' && (
+            <p className="muted small legal-note">
+              By creating an account you agree to our <a href="/terms" target="_blank" rel="noopener">Terms of Use</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+            </p>
+          )}
           <button className="primary wide-btn" type="submit" disabled={busy}>
             {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
           </button>
@@ -106,6 +115,9 @@ export function AuthScreen() {
             </button>
           )}
         </div>
+        <p className="muted small auth-legal">
+          <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+        </p>
       </div>
     </div>
   )

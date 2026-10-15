@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import { ConfirmButton, Field } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { EmailReminders } from '../components/EmailReminders'
+import { DeleteAccount } from '../components/DeleteAccount'
 import { DEFAULT_SETTINGS } from '../storage'
 import { downloadCsv, today } from '../utils'
 
@@ -258,6 +259,17 @@ export function Settings({ focus }: { focus?: string | null }) {
           {message}
         </p>
       )}
+
+      {account && mode === 'cloud' && (
+        <section className="card danger-card">
+          <h2>Delete my account</h2>
+          <DeleteAccount />
+        </section>
+      )}
+
+      <p className="muted small settings-legal">
+        <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a> · <a href="/terms" target="_blank" rel="noopener">Terms of Use</a> · <a href="mailto:support@freelancetracker.app">support@freelancetracker.app</a>
+      </p>
     </div>
   )
 }

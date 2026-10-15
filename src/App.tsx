@@ -11,6 +11,8 @@ import { Reports } from './pages/Reports'
 import { DailyLog } from './pages/DailyLog'
 import { Settings } from './pages/Settings'
 import { Admin } from './pages/Admin'
+import { PrivacyPage, TermsPage } from './pages/Legal'
+import { Feedback } from './pages/Feedback'
 import { Search } from './components/Search'
 import { Notifications } from './components/Notifications'
 import { QuickAdd, type QuickKind } from './components/QuickAdd'
@@ -23,7 +25,7 @@ import { elapsed, useNow } from './pages/DailyLog'
 import logo from './assets/logo-mark.png?inline'
 import './App.css'
 
-export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings' | 'admin'
+export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings' | 'feedback' | 'admin'
 export type Go = (page: Page, id?: string | null) => void
 
 const NAV: { id: Page; label: string; icon: string; also?: Page[] }[] = [
@@ -34,6 +36,7 @@ const NAV: { id: Page; label: string; icon: string; also?: Page[] }[] = [
   { id: 'reports', label: 'Statistics', icon: 'reports' },
   { id: 'daily', label: 'Check-ins', icon: 'checkin' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
+  { id: 'feedback', label: 'Feedback', icon: 'message' },
 ]
 const ADMIN_NAV: (typeof NAV)[number] = { id: 'admin', label: 'Admin', icon: 'shield' }
 const TABS: Page[] = ['home', 'orders', 'clients', 'money']
@@ -125,6 +128,7 @@ function Shell() {
             {route.page === 'reports' && <Reports />}
             {route.page === 'daily' && <DailyLog open={route.id === 'entry' || route.id === 'new' ? 'entry' : route.id === 'timer' ? 'timer' : undefined} />}
             {route.page === 'settings' && <Settings focus={route.id} />}
+            {route.page === 'feedback' && <Feedback />}
             {route.page === 'admin' && <Admin />}
           </main>
         )}
@@ -302,6 +306,9 @@ function Unsubscribe({ token }: { token: string }) {
 }
 
 export default function App() {
+  const path = window.location.pathname.replace(/\/+$/, '')
+  if (path === '/privacy') return <PrivacyPage />
+  if (path === '/terms') return <TermsPage />
   const unsubToken = new URLSearchParams(window.location.search).get('unsubscribe')
   if (unsubToken) return <Unsubscribe token={unsubToken} />
   if (PREVIEW) {

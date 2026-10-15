@@ -6,6 +6,7 @@ import { CountBars } from '../components/Chart'
 import { Icon } from '../components/Icon'
 import { addDays, daysBetween, initials, today } from '../utils'
 import { shortDate } from './Orders'
+import { AdminFeedback, useFeedbackInbox } from '../components/AdminFeedback'
 
 // Owner-only overview of the whole app. The numbers come from one database
 // function that refuses every account except the owner's, so hiding the menu
@@ -59,6 +60,9 @@ export function Admin() {
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  const [view, setView] = useState<'users' | 'feedback'>('users')
+  const inbox = useFeedbackInbox()
+  const newFeedback = (inbox.items ?? []).filter((f) => f.status === 'new').length
 
   const load = useCallback(async () => {
     setBusy(true)
@@ -143,10 +147,22 @@ export function Admin() {
           <h1>Admin</h1>
           <p className="muted small">Everyone using Freelance Tracker. Updated {updated}, refreshes every minute.</p>
         </div>
-        <button className="ghost bordered" onClick={load} disabled={busy}>
+        <button className="ghost bordered" onClick={() => (view === 'users' ? load() : inbox.load())} disabled={busy}>
           <Icon name="refresh" size={16} /> {busy ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
+
+      <div className="segmented admin-tabs" role="tablist" aria-label="Admin sections">
+        <button role="tab" aria-selected={view === 'users'} className={view === 'users' ? 'active' : ''} onClick={() => setView('users')}>Users</button>
+        <button role="tab" aria-selected={view === 'feedback'} className={view === 'feedback' ? 'active' : ''} onClick={() => setView('feedback')}>
+          Feedback{newFeedback > 0 && <span className="tab-dot">{newFeedback}</span>}
+        </button>
+      </div>
+
+      {view === 'feedback' ? (
+        <AdminFeedback inbox={inbox} />
+      ) : (
+      <>
 
       <div className="kpis">
         <div className="kpi hero">
@@ -289,6 +305,8 @@ export function Admin() {
         )}
         <p className="muted small">You see counts only. Other users' clients, payments and files stay private to them.</p>
       </section>
+      </>
+      )}
     </div>
   )
 }
