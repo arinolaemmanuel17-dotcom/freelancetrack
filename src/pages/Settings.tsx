@@ -5,11 +5,12 @@ import { ConfirmButton } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { EmailReminders } from '../components/EmailReminders'
 import { DeleteAccount } from '../components/DeleteAccount'
+import { FeedbackDialog } from '../components/FeedbackDialog'
 import { ListEditor, SettingGroup, SettingRow, currencyName, currencyOptions } from '../components/SettingsKit'
 import { DEFAULT_SETTINGS } from '../storage'
 import { downloadCsv, initials, today } from '../utils'
 
-type Section = 'profile' | 'notifications' | 'money' | 'work' | 'data' | 'privacy'
+type Section = 'profile' | 'notifications' | 'money' | 'work' | 'data' | 'help'
 
 const SECTIONS: { id: Section; label: string; icon: string; hint: string; cloud?: boolean }[] = [
   { id: 'profile', label: 'Profile', icon: 'clients', hint: 'Name, email, password', cloud: true },
@@ -17,14 +18,14 @@ const SECTIONS: { id: Section; label: string; icon: string; hint: string; cloud?
   { id: 'money', label: 'Money', icon: 'money', hint: 'Currencies, methods, categories' },
   { id: 'work', label: 'Work', icon: 'orders', hint: 'Services, platforms, activities' },
   { id: 'data', label: 'Import & export', icon: 'upload', hint: 'CSV import, download, erase' },
-  { id: 'privacy', label: 'Privacy & help', icon: 'shield', hint: 'Policy, terms, contact' },
+  { id: 'help', label: 'Help & feedback', icon: 'message', hint: 'Send feedback, contact, policies' },
 ]
 
 export function Settings({ focus }: { focus?: string | null }) {
   const { mode, account } = useStore()
   const cloud = mode === 'cloud' && !!account
   const sections = SECTIONS.filter((x) => !x.cloud || cloud)
-  const initial: Section | null = focus === 'name' ? 'profile' : focus === 'email' ? 'notifications' : null
+  const initial: Section | null = focus === 'name' ? 'profile' : focus === 'email' ? 'notifications' : focus === 'help' ? 'help' : null
   // On phones, null shows the menu; on wide screens the first section shows beside it.
   const [section, setSection] = useState<Section | null>(initial)
   const active = section ?? sections[0].id
@@ -87,7 +88,7 @@ export function Settings({ focus }: { focus?: string | null }) {
           {active === 'money' && <MoneySection />}
           {active === 'work' && <WorkSection />}
           {active === 'data' && <DataSection />}
-          {active === 'privacy' && <PrivacySection />}
+          {active === 'help' && <HelpSection />}
         </div>
       </div>
     </div>
@@ -415,25 +416,39 @@ function DataSection() {
   )
 }
 
-// ---------- Privacy & help ----------
-function PrivacySection() {
+// ---------- Help & feedback ----------
+function HelpSection() {
+  const { mode, account } = useStore()
+  const [open, setOpen] = useState(false)
   const links: [string, string, string][] = [
+    ['Contact support', 'support@freelancetracker.app', 'mailto:support@freelancetracker.app'],
     ['Privacy Policy', 'What we collect and how we protect it.', '/privacy'],
     ['Terms of Use', 'The rules for using Freelance Tracker.', '/terms'],
-    ['Contact support', 'support@freelancetracker.app', 'mailto:support@freelancetracker.app'],
   ]
   return (
-    <SettingGroup title="Privacy & help" description="Your records are private to your account. Only you can see them.">
-      {links.map(([label, hint, href]) => (
-        <a key={href} className="set-row link-row" href={href} target={href.startsWith('/') ? '_blank' : undefined} rel="noopener">
-          <span className="set-row-text">
-            <span className="set-row-label">{label}</span>
-            <span className="set-row-hint">{hint}</span>
-          </span>
-          <span className="chev" aria-hidden="true">›</span>
-        </a>
-      ))}
-    </SettingGroup>
+    <>
+      {mode === 'cloud' && account && (
+        <SettingGroup title="Feedback">
+          <SettingRow label="Send feedback" hint="Report a problem, suggest an idea or ask a question. We read every message and reply by email.">
+            <button className="primary" onClick={() => setOpen(true)}>
+              <Icon name="message" size={16} /> Send feedback
+            </button>
+          </SettingRow>
+        </SettingGroup>
+      )}
+      <SettingGroup title="Help & policies" description="Your records are private to your account. Only you can see them.">
+        {links.map(([label, hint, href]) => (
+          <a key={href} className="set-row link-row" href={href} target={href.startsWith('/') ? '_blank' : undefined} rel="noopener">
+            <span className="set-row-text">
+              <span className="set-row-label">{label}</span>
+              <span className="set-row-hint">{hint}</span>
+            </span>
+            <span className="chev" aria-hidden="true">›</span>
+          </a>
+        ))}
+      </SettingGroup>
+      {open && <FeedbackDialog onClose={() => setOpen(false)} />}
+    </>
   )
 }
 

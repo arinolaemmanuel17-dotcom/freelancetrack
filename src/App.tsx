@@ -12,7 +12,7 @@ import { DailyLog } from './pages/DailyLog'
 import { Settings } from './pages/Settings'
 import { Admin } from './pages/Admin'
 import { PrivacyPage, TermsPage } from './pages/Legal'
-import { Feedback } from './pages/Feedback'
+import { FeedbackDialog } from './components/FeedbackDialog'
 import { Search } from './components/Search'
 import { Notifications } from './components/Notifications'
 import { QuickAdd, type QuickKind } from './components/QuickAdd'
@@ -25,7 +25,7 @@ import { elapsed, useNow } from './pages/DailyLog'
 import logo from './assets/logo-mark.png?inline'
 import './App.css'
 
-export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings' | 'feedback' | 'admin'
+export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings' | 'admin'
 export type Go = (page: Page, id?: string | null) => void
 
 const NAV: { id: Page; label: string; icon: string; also?: Page[] }[] = [
@@ -36,7 +36,6 @@ const NAV: { id: Page; label: string; icon: string; also?: Page[] }[] = [
   { id: 'reports', label: 'Statistics', icon: 'reports' },
   { id: 'daily', label: 'Check-ins', icon: 'checkin' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
-  { id: 'feedback', label: 'Feedback', icon: 'message' },
 ]
 const ADMIN_NAV: (typeof NAV)[number] = { id: 'admin', label: 'Admin', icon: 'shield' }
 const TABS: Page[] = ['home', 'orders', 'clients', 'money']
@@ -51,6 +50,7 @@ function Shell() {
   const [route, setRoute] = useState<Route>({ page: 'home', id: null, key: 0 })
   const [quick, setQuick] = useState<QuickKind | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const { data, mode, status, error, dismissError, reload, account } = useStore()
   const nav = account?.isAdmin ? [...NAV, ADMIN_NAV] : NAV
 
@@ -88,7 +88,11 @@ function Shell() {
             <>
               {account.name && <strong className="small ellipsis">{account.name}</strong>}
               <span className="muted small ellipsis" title={account.email}>{account.email}</span>
-              <button className="link small" onClick={account.signOut}>Sign out</button>
+              <span className="side-foot-links small">
+                <button className="link" onClick={() => setFeedbackOpen(true)}>Send feedback</button>
+                <span aria-hidden="true">·</span>
+                <button className="link" onClick={account.signOut}>Sign out</button>
+              </span>
             </>
           ) : (
             <span className="muted small">Preview: saved in this browser</span>
@@ -128,7 +132,6 @@ function Shell() {
             {route.page === 'reports' && <Reports />}
             {route.page === 'daily' && <DailyLog open={route.id === 'entry' || route.id === 'new' ? 'entry' : route.id === 'timer' ? 'timer' : undefined} />}
             {route.page === 'settings' && <Settings focus={route.id} />}
-            {route.page === 'feedback' && <Feedback />}
             {route.page === 'admin' && <Admin />}
           </main>
         )}
@@ -150,7 +153,7 @@ function Shell() {
           <span>More</span>
         </button>
       </nav>
-      {!['settings', 'feedback', 'admin'].includes(route.page) && <QuickAdd onPick={onQuick} variant="fab" />}
+      {!['settings', 'admin'].includes(route.page) && <QuickAdd onPick={onQuick} variant="fab" />}
 
       {moreOpen && (
         <div className="sheet-overlay" onClick={() => setMoreOpen(false)}>
@@ -171,6 +174,7 @@ function Shell() {
 
       {mode === 'cloud' && status === 'ready' && !error && !data.settings.onboarded && <SetupWelcome />}
 
+      {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
       {quick === 'client' && <ClientForm client={null} onClose={() => setQuick(null)} onSaved={(id) => go('client', id)} onOpenExisting={(id) => go('client', id)} />}
       {quick === 'order' && <OrderForm order={null} onClose={() => setQuick(null)} onSaved={(id) => go('order', id)} />}
       {quick === 'payment' && <PaymentForm payment={null} onClose={() => setQuick(null)} />}
