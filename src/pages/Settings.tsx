@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'r
 import { useStore } from '../store'
 import { ConfirmButton, Field } from '../components/ui'
 import { Icon } from '../components/Icon'
+import { EmailReminders } from '../components/EmailReminders'
 import { DEFAULT_SETTINGS } from '../storage'
 import { downloadCsv, today } from '../utils'
 
@@ -125,6 +126,14 @@ export function Settings({ focus }: { focus?: string | null }) {
               <Icon name="logout" size={18} /> Sign out
             </button>
           </div>
+        </section>
+      )}
+
+      {account && mode === 'cloud' && (
+        <section className="card" id="email-settings">
+          <h2>Email reminders</h2>
+          <p className="muted small">Choose which reminders we email you. You can change this anytime.</p>
+          <EmailReminders userId={account.userId} />
         </section>
       )}
 

@@ -18,6 +18,7 @@ import { ClientForm, ExpenseForm, OrderForm, PaymentForm } from './components/Fo
 import { Icon } from './components/Icon'
 import { CurrencySwitch } from './components/CurrencySwitch'
 import { SetupWelcome } from './components/Setup'
+import { ensureEmailPrefs } from './components/EmailReminders'
 import { elapsed, useNow } from './pages/DailyLog'
 import logo from './assets/logo-mark.png?inline'
 import './App.css'
@@ -212,6 +213,11 @@ function AccountGate() {
   // Ask the database whether this account is the app owner. Anyone else gets false.
   const userId = session?.user.id ?? null
   const [adminFor, setAdminFor] = useState<string | null>(null)
+  // First sign-in: save this device's time zone so reminders arrive at the right hour.
+  useEffect(() => {
+    if (userId) void ensureEmailPrefs(userId).catch(() => {})
+  }, [userId])
+
   useEffect(() => {
     if (!userId) return
     let live = true
@@ -251,7 +257,53 @@ function AccountGate() {
   )
 }
 
+// Opened from the "Unsubscribe" link in an email: turn reminders off, no sign-in needed.
+function Unsubscribe({ token }: { token: string }) {
+  const [state, setState] = useState<'working' | 'done' | 'bad'>('working')
+  useEffect(() => {
+    const valid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)
+    if (!valid) {
+      setState('bad')
+      return
+    }
+    supabase.rpc('email_unsubscribe', { p_token: token }).then(({ data, error }) => setState(!error && data === true ? 'done' : 'bad'))
+  }, [token])
+  const home = () => {
+    window.history.replaceState(null, '', '/')
+    window.location.reload()
+  }
+  return (
+    <div className="auth">
+      <div className="auth-card">
+        <div className="brand">
+          <img className="logo-img" src={logo} alt="" />
+          <span className="wordmark">
+            <span>Freelance</span>
+            <span className="accent-word">Tracker</span>
+          </span>
+        </div>
+        {state === 'working' && <p className="muted">Updating your email settings…</p>}
+        {state === 'done' && (
+          <>
+            <h1>You're unsubscribed</h1>
+            <p className="muted">You won't get reminder emails anymore. You can turn them back on anytime in Settings.</p>
+          </>
+        )}
+        {state === 'bad' && (
+          <>
+            <h1>Link not recognised</h1>
+            <p className="muted">This unsubscribe link didn't work. Sign in and turn reminders off in Settings instead.</p>
+          </>
+        )}
+        <button className="primary" onClick={home}>Open Freelance Tracker</button>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
+  const unsubToken = new URLSearchParams(window.location.search).get('unsubscribe')
+  if (unsubToken) return <Unsubscribe token={unsubToken} />
   if (PREVIEW) {
     return (
       <StoreProvider>
