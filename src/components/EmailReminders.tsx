@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
-import { Field } from './ui'
+import { SettingRow, Switch } from './SettingsKit'
 
 // Which reminder emails this account gets, and when. Saved straight to the
 // email_prefs table (each user can only read and change their own row).
@@ -60,7 +60,7 @@ export function EmailReminders({ userId }: { userId: string }) {
     }
   }, [userId])
 
-  if (!prefs) return <p className="muted small">Loading email settings…</p>
+  if (!prefs) return <p className="muted small set-loading">Loading email settings…</p>
 
   const set = (patch: Partial<Prefs>) => {
     setPrefs({ ...prefs, ...patch })
@@ -84,51 +84,38 @@ export function EmailReminders({ userId }: { userId: string }) {
   const rows: [keyof Prefs, string, string][] = [
     ['checkin_reminder', 'Check-in reminder', "In the evening, if you haven't checked in that day."],
     ['order_reminder', 'Orders due or late', 'The evening before an order is due, and when it runs late.'],
-    ['goal_reminder', 'Monthly goal reminder', 'On the 25th when goal setting opens, and on the 3rd if you still have none.'],
+    ['goal_reminder', 'Monthly goal', 'On the 25th when goal setting opens, and on the 3rd if you still have none.'],
   ]
 
   return (
-    <div className="email-prefs">
-      <ul className="checklist">
-        {rows.map(([key, label, hint]) => (
-          <li key={key}>
-            <label>
-              <input type="checkbox" checked={prefs[key] as boolean} onChange={(e) => set({ [key]: e.target.checked } as Partial<Prefs>)} />
-              <span>
-                <strong className="block">{label}</strong>
-                <span className="muted small">{hint}</span>
-              </span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      <div className="form">
-        <Field label="Send reminders at">
-          <select id="set-reminder-hour" value={prefs.reminder_hour} onChange={(e) => set({ reminder_hour: Number(e.target.value) })}>
-            {Array.from({ length: 24 }, (_, h) => (
-              <option key={h} value={h}>
-                {hourLabel(h)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Your time zone">
-          <input id="set-timezone" value={prefs.timezone} readOnly />
-        </Field>
-      </div>
-      <div className="actions">
-        {prefs.timezone !== device && (
-          <button className="ghost" onClick={() => set({ timezone: device })}>
-            Use this device's time zone ({device})
-          </button>
-        )}
+    <>
+      {rows.map(([key, label, hint]) => (
+        <SettingRow key={key} label={label} hint={hint}>
+          <Switch id={`set-${key}`} label={label} checked={prefs[key] as boolean} onChange={(v) => set({ [key]: v } as Partial<Prefs>)} />
+        </SettingRow>
+      ))}
+      <SettingRow label="Send reminders at" hint="Reminders arrive at this time in your time zone." htmlFor="set-reminder-hour">
+        <select id="set-reminder-hour" value={prefs.reminder_hour} onChange={(e) => set({ reminder_hour: Number(e.target.value) })}>
+          {Array.from({ length: 24 }, (_, h) => (
+            <option key={h} value={h}>
+              {hourLabel(h)}
+            </option>
+          ))}
+        </select>
+      </SettingRow>
+      <SettingRow
+        label="Time zone"
+        hint={prefs.timezone !== device ? <>This device is in {device}. <button type="button" className="link" onClick={() => set({ timezone: device })}>Use it</button></> : 'Set from this device.'}
+      >
+        <span className="set-value">{prefs.timezone.replace(/_/g, ' ')}</span>
+      </SettingRow>
+      <div className="set-save">
+        {msg && <p className={`notice ${msg.tone}`} role="status">{msg.text}</p>}
         <span className="grow" />
         <button className="primary" onClick={save} disabled={busy || !changed}>
-          {busy ? 'Saving…' : 'Save email settings'}
+          {busy ? 'Saving…' : 'Save'}
         </button>
       </div>
-      {msg && <p className={`notice ${msg.tone}`} role="status">{msg.text}</p>}
-      <p className="muted small">Emails come from hello@freelancetracker.app. Every email has a link to stop them.</p>
-    </div>
+    </>
   )
 }

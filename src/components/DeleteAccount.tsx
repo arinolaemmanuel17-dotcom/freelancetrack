@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../supabase'
+import { SettingRow } from './SettingsKit'
 
 // Permanently deletes the signed-in account: records, files and login.
 export function DeleteAccount() {
@@ -23,12 +24,9 @@ export function DeleteAccount() {
 
   if (!open) {
     return (
-      <>
-        <p className="muted small">Permanently delete your account, all your records and uploaded files. Download your data first if you want a copy.</p>
-        <div className="actions">
-          <button className="danger" onClick={() => setOpen(true)}>Delete my account…</button>
-        </div>
-      </>
+      <SettingRow label="Delete account" hint="Permanently delete your account, all your records and uploaded files. Download your data first if you want a copy.">
+        <button className="danger" onClick={() => setOpen(true)}>Delete account…</button>
+      </SettingRow>
     )
   }
 

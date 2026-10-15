@@ -150,7 +150,7 @@ function Shell() {
           <span>More</span>
         </button>
       </nav>
-      <QuickAdd onPick={onQuick} variant="fab" />
+      {!['settings', 'feedback', 'admin'].includes(route.page) && <QuickAdd onPick={onQuick} variant="fab" />}
 
       {moreOpen && (
         <div className="sheet-overlay" onClick={() => setMoreOpen(false)}>
