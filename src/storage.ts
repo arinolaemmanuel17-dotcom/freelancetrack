@@ -3,6 +3,15 @@ import { addDays, today } from './utils'
 
 const KEY = 'freelance-tracker-v1'
 
+// What each marketplace takes and how long it holds your money after delivery.
+// These are starting points the user can change in Settings; platforms change their terms.
+export const DEFAULT_PLATFORM_RULES: Settings['platformRules'] = {
+  Fiverr: { fee: 20, hold: 14 },
+  Upwork: { fee: 10, hold: 5 },
+  Freelancer: { fee: 10, hold: 15 },
+  PeoplePerHour: { fee: 20, hold: 14 },
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   baseCurrency: 'USD',
   currencies: ['USD', 'EUR', 'GBP', 'NGN'],
@@ -16,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   altCurrency: '',
   altRate: 0,
   outreachGapDays: 3,
+  platformRules: DEFAULT_PLATFORM_RULES,
   onboarded: false,
 }
 

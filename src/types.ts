@@ -115,6 +115,13 @@ export interface MonthlyGoal {
   amount: number // in base currency
 }
 
+// What a platform takes and how long it sits on your money.
+// fee is a percent of the order price; hold is days after you deliver.
+export interface PlatformRule {
+  fee: number
+  hold: number
+}
+
 export interface Settings {
   baseCurrency: string
   currencies: string[]
@@ -128,6 +135,7 @@ export interface Settings {
   altCurrency: string // second currency to view totals in ('' = none)
   altRate: number // 1 base = altRate alt (e.g. 1 USD = 1500 NGN); 0 = use latest payment rate
   outreachGapDays: number
+  platformRules: Record<string, PlatformRule> // keyed by platform name; missing means no fee, no wait
   onboarded: boolean // finished (or skipped) the first-time setup
 }
 

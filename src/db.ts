@@ -100,6 +100,11 @@ const toSettings = (r: Row | null): Settings =>
         altCurrency: str(r.alt_currency),
         altRate: num(r.alt_rate) ?? 0,
         outreachGapDays: num(r.outreach_gap_days) ?? DEFAULT_SETTINGS.outreachGapDays,
+        // The platform_rules column may not exist yet; fall back to the built-in rules.
+        platformRules:
+          r.platform_rules && typeof r.platform_rules === 'object'
+            ? (r.platform_rules as Settings['platformRules'])
+            : DEFAULT_SETTINGS.platformRules,
       }
     : DEFAULT_SETTINGS
 

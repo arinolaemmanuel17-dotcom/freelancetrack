@@ -422,3 +422,96 @@ export function goalWindow(now = today()): GoalWindow {
 export function goalFor(data: AppData, month: string): number | null {
   return data.goals.find((g) => g.month === month)?.amount ?? null
 }
+
+// ---------- where your money is ----------
+// Every order with a price sits at one of three stages before the money lands:
+//   progress  you are still working on it
+//   clearing  delivered, and the platform is holding the money until a date
+//   owed      cleared on the platform (ready to withdraw), or a client hasn't paid
+// Recording a payment is what moves money out of these stages and into your bank.
+
+export type MoneyStage = 'progress' | 'clearing' | 'owed'
+
+export interface MoneyItem {
+  orderId: string
+  title: string
+  client: string
+  platform: string
+  stage: MoneyStage
+  gross: number // the agreed price, in your main currency
+  fee: number // what the platform takes
+  amount: number // what is still coming to you at this stage
+  date: string | null // the day it clears, or the day it was due
+  daysLate: number // days past that date (0 when not late)
+  ready: boolean // sitting on the platform, waiting for you to withdraw
+}
+
+export function ruleFor(data: AppData, platform: string): { fee: number; hold: number } {
+  const r = data.settings.platformRules?.[platform]
+  return { fee: Math.max(0, r?.fee ?? 0), hold: Math.max(0, r?.hold ?? 0) }
+}
+
+// What you keep from an order after the platform's cut, in your main currency.
+export function orderNet(data: AppData, order: Order): number | null {
+  if (order.price === null) return null
+  const gross = orderToBase(data, order, order.price)
+  if (gross === null) return null
+  return gross - gross * (ruleFor(data, order.platform).fee / 100)
+}
+
+export function moneyPipeline(data: AppData, now = today()): MoneyItem[] {
+  const items: MoneyItem[] = []
+  for (const o of data.orders) {
+    if (['Cancelled', 'Lead', 'Proposal'].includes(o.status) || o.price === null) continue
+    const gross = orderToBase(data, o, o.price)
+    if (gross === null) continue
+    const rule = ruleFor(data, o.platform)
+    const fee = gross * (rule.fee / 100)
+    const received = orderToBase(data, o, orderReceived(data, o)) ?? 0
+    const amount = Math.round((gross - fee - received) * 100) / 100
+    if (amount <= 0) continue // already in your hands
+
+    const base = { orderId: o.id, title: o.title, client: clientName(data, o.clientId), platform: o.platform, gross, fee, amount }
+    if (o.status !== 'Completed') {
+      items.push({ ...base, stage: 'progress', date: o.dueDate, daysLate: o.dueDate && o.dueDate < now ? daysBetween(o.dueDate, now) : 0, ready: false })
+      continue
+    }
+    const from = o.completedAt ?? o.dueDate
+    const clearsOn = from ? addDays(from, rule.hold) : null
+    if (clearsOn && clearsOn > now) {
+      items.push({ ...base, stage: 'clearing', date: clearsOn, daysLate: 0, ready: false })
+    } else {
+      items.push({
+        ...base,
+        stage: 'owed',
+        date: clearsOn,
+        daysLate: clearsOn && clearsOn < now ? daysBetween(clearsOn, now) : 0,
+        ready: rule.hold > 0 || rule.fee > 0, // a marketplace holds it for you; a direct client has to pay you
+      })
+    }
+  }
+  return items.sort((a, b) => {
+    if (a.daysLate !== b.daysLate) return b.daysLate - a.daysLate
+    return (a.date ?? '9999').localeCompare(b.date ?? '9999')
+  })
+}
+
+export function stageTotal(items: MoneyItem[], stage: MoneyStage): number {
+  return items.filter((i) => i.stage === stage).reduce((s, i) => s + i.amount, 0)
+}
+
+// What you delivered in a month and what the platforms took, in your main currency.
+export function deliveredIn(data: AppData, month: string): { gross: number; fee: number; kept: number } {
+  let gross = 0
+  let fee = 0
+  for (const o of data.orders) {
+    if (o.status !== 'Completed' || o.price === null) continue
+    const when = o.completedAt ?? o.dueDate
+    if (!when || monthOf(when) !== month) continue
+    const g = orderToBase(data, o, o.price)
+    if (g === null) continue
+    gross += g
+    fee += g * (ruleFor(data, o.platform).fee / 100)
+  }
+  return { gross, fee, kept: gross - fee }
+}
