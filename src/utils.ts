@@ -1,7 +1,21 @@
 import type { AppData, CheckinEntry, Client, DayEntry, Order, Payment } from './types'
 import { OPEN_STATUSES } from './types'
 
+// The time zone "today" is worked out in. Set from the account's saved time zone so
+// the app and the database agree on what day it is. Empty means this device's own.
+let appTimeZone = ''
+export function setAppTimeZone(tz: string | null | undefined): void {
+  appTimeZone = tz ?? ''
+}
+
 export function today(): string {
+  if (appTimeZone) {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: appTimeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+    } catch {
+      // Unknown time zone: fall back to this device's date.
+    }
+  }
   const d = new Date()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
@@ -237,6 +251,12 @@ export function monthLabel(key: string, withYear = false): string {
   return new Date(y, m - 1, 1).toLocaleDateString(undefined, withYear ? { month: 'short', year: 'numeric' } : { month: 'short' })
 }
 
+// Full month name, e.g. "October".
+export function monthName(key: string): string {
+  const [y, m] = key.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long' })
+}
+
 export function previousMonth(key: string): string {
   return lastMonths(2, `${key}-15`)[0]
 }
@@ -421,4 +441,25 @@ export function goalWindow(now = today()): GoalWindow {
 
 export function goalFor(data: AppData, month: string): number | null {
   return data.goals.find((g) => g.month === month)?.amount ?? null
+}
+
+// ---------- closing months ----------
+// A month stays open until the end of the 5th of the next month. From the 1st to the
+// 5th two months are open (last month and this one); after the 5th only this month is.
+
+// First day of the oldest month that is still open.
+export function openFloor(now = today()): string {
+  const day = Number(now.slice(8, 10))
+  return day <= 5 ? `${previousMonth(monthOf(now))}-01` : `${monthOf(now)}-01`
+}
+
+// True when a date falls in a month that has closed.
+export function isClosedDate(date: string | null | undefined, now = today()): boolean {
+  return !!date && date < openFloor(now)
+}
+
+// The last day (the 5th) a month can still be edited, as a short label like "5 Dec".
+export function closesOn(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return new Date(y, m, 5).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 }

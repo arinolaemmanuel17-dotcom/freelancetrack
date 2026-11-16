@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
-import { normalizeStatus, type CheckinEntry, type MonthlyGoal, type AppData, type ChecklistItem, type Client, type DayEntry, type Expense, type Order, type Payment, type PaymentStatus, type Settings } from './types'
+import { normalizeStatus, type Correction, type CheckinEntry, type MonthlyGoal, type AppData, type ChecklistItem, type Client, type DayEntry, type Expense, type Order, type Payment, type PaymentStatus, type Settings } from './types'
 import { DEFAULT_SETTINGS } from './storage'
+import { setAppTimeZone } from './utils'
 
 // Maps between the app's camelCase records and the database's snake_case rows.
 
@@ -31,7 +32,7 @@ const toOrder = (r: Row): Order => ({
   dueDate: (r.due_date as string | null) ?? null,
   notes: str(r.notes),
   checklist: Array.isArray(r.checklist) ? (r.checklist as ChecklistItem[]) : [],
-  completedAt: (r.completed_at as string | null) ?? (normalizeStatus(str(r.status)) === 'Completed' ? str(r.updated_at).slice(0, 10) || null : null),
+  completedAt: (r.completed_at as string | null) ?? null, // never guessed: a completed order with no date is flagged for the user
   createdAt: str(r.created_at),
   updatedAt: str(r.updated_at),
 })
@@ -84,6 +85,18 @@ const toDay = (r: Row): DayEntry => ({
   notes: str(r.notes),
 })
 
+const toCorrection = (r: Row): Correction => ({
+  id: str(r.id),
+  table: str(r.table_name) as Correction['table'],
+  recordId: str(r.record_id),
+  action: str(r.action) as Correction['action'],
+  month: str(r.month),
+  oldValues: (r.old_values as Record<string, unknown>) ?? {},
+  newValues: (r.new_values as Record<string, unknown> | null) ?? null,
+  reason: str(r.reason),
+  createdAt: str(r.created_at),
+})
+
 const toSettings = (r: Row | null): Settings =>
   r
     ? {
@@ -110,7 +123,7 @@ function check<T>(res: { data: T; error: { message: string } | null }): T {
 
 // Loads everything for the signed-in user. Row-level security returns only their rows.
 export async function fetchAll(): Promise<AppData> {
-  const [clients, orders, payments, expenses, days, settings, goals, entries] = await Promise.all([
+  const [clients, orders, payments, expenses, days, settings, goals, entries, prefs, corrections] = await Promise.all([
     supabase.from('clients').select('*').order('name'),
     supabase.from('orders').select('*').order('created_at'),
     supabase.from('payments').select('*').order('date', { ascending: false }),
@@ -119,7 +132,11 @@ export async function fetchAll(): Promise<AppData> {
     supabase.from('user_settings').select('*').maybeSingle(),
     supabase.from('monthly_goals').select('month, amount').order('month'),
     supabase.from('checkin_entries').select('*').order('date', { ascending: false }).order('created_at'),
+    supabase.from('email_prefs').select('timezone').maybeSingle(),
+    supabase.from('corrections').select('*').order('created_at', { ascending: false }).limit(200),
   ])
+  // "Today" and the 5th follow the time zone saved on the account, the same one the database uses.
+  setAppTimeZone((prefs.data as { timezone?: string } | null)?.timezone ?? 'Africa/Lagos')
   return {
     clients: (check(clients) ?? []).map(toClient),
     orders: (check(orders) ?? []).map(toOrder),
@@ -129,6 +146,8 @@ export async function fetchAll(): Promise<AppData> {
     settings: toSettings(check(settings)),
     entries: (check(entries) ?? []).map(toEntry),
     goals: (check(goals) ?? []).map((g: Row): MonthlyGoal => ({ month: str(g.month), amount: num(g.amount) ?? 0 })),
+    // The log is a nice-to-have: if it can't load, the rest of the app still works.
+    corrections: corrections.error ? [] : (corrections.data ?? []).map(toCorrection),
     example: false,
   }
 }
@@ -268,8 +287,21 @@ export async function insertClients(rows: Client[]) {
   )
 }
 
+// Changes or deletes a record in a closed month. The database keeps the old value,
+// the new value, the date and the reason, and shows them in the correction history.
+export async function correctClosedRecord(
+  table: 'payments' | 'expenses' | 'orders',
+  id: string,
+  action: 'update' | 'delete',
+  changes: Record<string, unknown>,
+  reason: string,
+) {
+  check(await supabase.rpc('correct_closed_record', { p_table: table, p_id: id, p_action: action, p_changes: changes, p_reason: reason }))
+}
+
 // Deletes all of the user's records. Orders and payments linked to clients go with them.
 export async function eraseAll(userId: string) {
+  check(await supabase.rpc('erase_my_records')) // money in closed months can only be removed this way
   check(await supabase.from('clients').delete().eq('user_id', userId))
   check(await supabase.from('payments').delete().eq('user_id', userId))
   check(await supabase.from('expenses').delete().eq('user_id', userId))

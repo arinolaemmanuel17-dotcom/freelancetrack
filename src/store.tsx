@@ -58,6 +58,14 @@ interface StoreValue {
   startTimer: (activity: string, platform: string) => void
   stopTimer: () => (RunningTimer & { hours: number }) | null
   cancelTimer: () => void
+  // Changes or deletes a record in a closed month, with a reason. Returns an error message, or null when done.
+  correctRecord: (
+    table: 'payments' | 'expenses' | 'orders',
+    id: string,
+    action: 'update' | 'delete',
+    changes: Record<string, unknown>,
+    reason: string,
+  ) => Promise<string | null>
   saveGoal: (g: MonthlyGoal) => boolean // false if the goal window is closed for that month
   updateSettings: (s: Partial<Settings>) => void
   resetAll: () => void
@@ -161,7 +169,8 @@ export function StoreProvider({ account, children }: { account?: Account | null;
     // and any remaining balance is recorded as a payment received today.
     const settle = (order: Order, d0: AppData): number => {
       const expected = d0.payments.filter((p) => p.orderId === order.id && p.status === 'Expected')
-      const received = expected.map((p) => ({ ...p, status: 'Received' as const }))
+      // The money arrives today, so an expected payment that is now received takes today's date.
+      const received = expected.map((p) => ({ ...p, status: 'Received' as const, date: today() }))
       const after: AppData = { ...d0, payments: d0.payments.map((p) => received.find((r) => r.id === p.id) ?? p) }
       const bal = orderBalance(after, order) ?? 0
       const extra: Payment[] = []
@@ -435,6 +444,20 @@ export function StoreProvider({ account, children }: { account?: Account | null;
         setTimer(null)
       },
 
+      async correctRecord(table, id, action, changes, reason) {
+        if (!cloud) return 'Corrections need an account.'
+        if (reason.trim().length < 3) return 'Please type a reason for the correction.'
+        try {
+          // Wait for any save still in flight, so the correction sees the latest record.
+          await queueRef.current
+          await db.correctClosedRecord(table, id, action, changes, reason.trim())
+          await fetchIntoState()
+          return null
+        } catch (e) {
+          return (e as Error).message
+        }
+      },
+
       saveGoal(g) {
         if (goalWindow().month !== g.month || !(g.amount > 0)) return false
         setData((d) => ({ ...d, goals: [...d.goals.filter((x) => x.month !== g.month), g].sort((a, b) => a.month.localeCompare(b.month)) }))
@@ -458,7 +481,7 @@ export function StoreProvider({ account, children }: { account?: Account | null;
         if (!cloud) setData(exampleData())
       },
     }
-  }, [account, cloud, data, error, reload, status, timer, setTimer, showAlt, setShowAlt])
+  }, [account, cloud, data, error, reload, status, timer, setTimer, showAlt, setShowAlt, fetchIntoState])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

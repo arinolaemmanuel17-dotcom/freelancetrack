@@ -131,6 +131,19 @@ export interface Settings {
   onboarded: boolean // finished (or skipped) the first-time setup
 }
 
+// One logged correction to a record in a closed month.
+export interface Correction {
+  id: string
+  table: 'payments' | 'expenses' | 'orders'
+  recordId: string
+  action: 'update' | 'delete'
+  month: string // YYYY-MM, the closed month that was touched
+  oldValues: Record<string, unknown>
+  newValues: Record<string, unknown> | null
+  reason: string
+  createdAt: string
+}
+
 export interface AppData {
   clients: Client[]
   orders: Order[]
@@ -139,6 +152,7 @@ export interface AppData {
   days: DayEntry[]
   entries: CheckinEntry[]
   goals: MonthlyGoal[]
+  corrections?: Correction[]
   settings: Settings
   example?: boolean // true while the app shows made-up example records
 }

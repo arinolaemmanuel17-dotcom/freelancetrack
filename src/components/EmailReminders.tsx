@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { SettingRow, Switch } from './SettingsKit'
+import { setAppTimeZone } from '../utils'
 
 // Which reminder emails this account gets, and when. Saved straight to the
 // email_prefs table (each user can only read and change their own row).
@@ -78,6 +79,7 @@ export function EmailReminders({ userId }: { userId: string }) {
       return
     }
     setSaved(prefs)
+    setAppTimeZone(prefs.timezone) // "today" and the 5th follow this time zone
     setMsg({ tone: 'good', text: 'Email settings saved.' })
   }
 

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useStore } from '../store'
 import { MonthColumns } from '../components/Chart'
-import { checkinDates, clientName, dayTotals, daysBetween, workBy, downloadCsv, lastMonths, monthLabel, monthOf, orderToBase, receivedIn, spentIn, toBase, today, totalOutstanding } from '../utils'
+import { checkinDates, clientName, dayTotals, daysBetween, workBy, downloadCsv, lastMonths, monthLabel, monthName, monthOf, orderToBase, receivedIn, spentIn, toBase, today, totalOutstanding } from '../utils'
 import { OPEN_STATUSES } from '../types'
 
 type Range = 3 | 6 | 12 | 0 // months; 0 = all time
@@ -98,7 +98,8 @@ export function Reports() {
   }
   const orderOf = (id: string | null) => data.orders.find((o) => o.id === id)
   const byService = group((oid) => orderOf(oid)?.service ?? '')
-  const byPlatform = group((oid, cid) => orderOf(oid)?.platform || data.clients.find((c) => c.id === cid)?.platform || '')
+  // One rule everywhere: a payment belongs to its order's own platform.
+  const byPlatform = group((oid) => orderOf(oid)?.platform || '')
   const costs = (() => {
     const m = new Map<string, number>()
     for (const e of data.expenses.filter((x) => inRange(x.date))) m.set(e.category || 'Not set', (m.get(e.category || 'Not set') ?? 0) + toBase(e.amount, e.rateToBase))
@@ -202,8 +203,8 @@ export function Reports() {
       <section className="stat-section">
         <h2>Orders</h2>
         <div className="stats four">
-          <Stat label="Orders started" value={started.length} note={`${openNow.length} open right now`} />
-          <Stat label="Completed" value={completed.length} note={avgDays === null ? `${cancelled.length} cancelled` : `Avg ${Math.round(avgDays)} days to finish · ${cancelled.length} cancelled`} />
+          <Stat label="Orders taken" value={started.length} note={`By start date · ${openNow.length} open right now`} />
+          <Stat label="Orders delivered" value={completed.length} note={avgDays === null ? `By completed date · ${cancelled.length} cancelled` : `By completed date · avg ${Math.round(avgDays)} days · ${cancelled.length} cancelled`} />
           <Stat label="Average order value" value={priced.length ? money(avgOrder) : '–'} />
           <Stat label="Finished on time" value={withDue.length ? pct(onTime / withDue.length) : '–'} note={withDue.length ? `${onTime} of ${withDue.length} with a due date` : 'Needs due dates'} tone={withDue.length && onTime / withDue.length < 0.7 ? 'bad' : undefined} />
         </div>
@@ -364,8 +365,40 @@ export function Reports() {
           <Table head={['Category', 'Spent', 'Share']} rows={costs.map((r) => [r.key, money(r.value), share(r.value, spend)])} empty="No expenses in this period." />
         </section>
       </div>
+
+      {(data.corrections ?? []).length > 0 && (
+        <section className="card">
+          <h2>Corrections to closed months</h2>
+          <p className="muted small">Every change to a closed month is kept here with its reason. Nothing moves quietly.</p>
+          <ul className="rows">
+            {(data.corrections ?? []).map((c) => (
+              <li key={c.id}>
+                <span className="grow">
+                  <strong>
+                    {c.action === 'delete' ? 'Deleted' : 'Changed'} {c.table === 'payments' ? 'a payment' : c.table === 'expenses' ? 'an expense' : 'an order'} from {monthName(c.month)} {c.month.slice(0, 4)}
+                  </strong>
+                  <span className="muted small block">
+                    {c.reason} · {new Date(c.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                  <span className="muted small block">{describeChange(c)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
+}
+
+// A short plain-words summary of what a correction changed.
+function describeChange(c: { oldValues: Record<string, unknown>; newValues: Record<string, unknown> | null }): string {
+  const o = c.oldValues
+  const label = (v: Record<string, unknown>) => [v.amount ? `${v.amount} ${v.currency ?? ''}`.trim() : v.price != null ? `price ${v.price}` : '', v.date ?? v.start_date ?? ''].filter(Boolean).join(' on ')
+  if (!c.newValues) return `Was: ${label(o)}`
+  const n = c.newValues
+  const keys = ['date', 'amount', 'currency', 'status', 'price', 'start_date', 'completed_at', 'category'].filter((k) => String(o[k] ?? '') !== String(n[k] ?? ''))
+  return keys.length ? keys.map((k) => `${k.replace('_', ' ')}: ${String(o[k] ?? '–')} → ${String(n[k] ?? '–')}`).join(' · ') : 'Details changed'
 }
 
 function Table({ head, rows, empty }: { head: string[]; rows: string[][]; empty: string }) {

@@ -95,6 +95,7 @@ export function MoneyInput({
   placeholder,
   autoFocus,
   label,
+  disabled,
 }: {
   id: string
   value: string
@@ -104,6 +105,7 @@ export function MoneyInput({
   placeholder?: string
   autoFocus?: boolean
   label?: string
+  disabled?: boolean
 }) {
   const bump = (dir: 1 | -1, times = 1) => {
     const current = Number(value) || 0
@@ -122,6 +124,7 @@ export function MoneyInput({
         placeholder={placeholder}
         required={required}
         autoFocus={autoFocus}
+        disabled={disabled}
         aria-label={label}
         pattern="[0-9]*[.]?[0-9]{0,2}"
         title="Numbers only, up to 2 decimal places"
@@ -133,10 +136,10 @@ export function MoneyInput({
           }
         }}
       />
-      <button type="button" className="step-btn" onClick={() => bump(-1)} aria-label={`Decrease by ${fmtStep}`} tabIndex={-1}>
+      <button type="button" className="step-btn" onClick={() => bump(-1)} aria-label={`Decrease by ${fmtStep}`} tabIndex={-1} disabled={disabled}>
         −
       </button>
-      <button type="button" className="step-btn" onClick={() => bump(1)} aria-label={`Increase by ${fmtStep}`} tabIndex={-1}>
+      <button type="button" className="step-btn" onClick={() => bump(1)} aria-label={`Increase by ${fmtStep}`} tabIndex={-1} disabled={disabled}>
         +
       </button>
     </span>

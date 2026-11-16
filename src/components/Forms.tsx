@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useStore } from '../store'
 import { ConfirmButton, Field, Modal, MoneyInput, Options } from './ui'
 import { ORDER_STATUSES, type Client, type Expense, type Order, type OrderStatus, type Payment, type PaymentStatus } from '../types'
-import { clientName, formatMoney, rateFor, similarClients, today } from '../utils'
+import { clientName, formatMoney, isClosedDate, monthName, monthOf, openFloor, rateFor, similarClients, today } from '../utils'
 import type { AppData } from '../types'
 
 type ListName = 'services' | 'platforms' | 'methods' | 'categories'
@@ -84,7 +84,7 @@ export function ListSelect({
   )
 }
 
-function Actions({ onClose, onDelete, deleteQuestion }: { onClose: () => void; onDelete?: () => void; deleteQuestion?: string }) {
+function Actions({ onClose, onDelete, deleteQuestion, busy }: { onClose: () => void; onDelete?: () => void | Promise<void>; deleteQuestion?: string; busy?: boolean }) {
   return (
     <div className="actions">
       {onDelete && <ConfirmButton label="Delete" question={deleteQuestion ?? 'Delete this?'} onConfirm={onDelete} />}
@@ -92,13 +92,27 @@ function Actions({ onClose, onDelete, deleteQuestion }: { onClose: () => void; o
       <button type="button" className="ghost" onClick={onClose}>
         Cancel
       </button>
-      <button type="submit" className="primary">
-        Save
+      <button type="submit" className="primary" disabled={busy}>
+        {busy ? 'Saving…' : 'Save'}
       </button>
     </div>
   )
 }
 
+
+// Shown when a record sits in a closed month: it can still be corrected, but never quietly.
+function ClosedMonthReason({ date, reason, setReason }: { date: string; reason: string; setReason: (v: string) => void }) {
+  return (
+    <>
+      <div className="banner wide" role="status">
+        <span className="grow">This is from {monthName(monthOf(date))}, a closed month. You can still correct it, but the change is saved in your correction history with your reason.</span>
+      </div>
+      <Field label="Reason for the correction *" wide>
+        <input id="correction-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Wrong date, the money cleared on 2 Dec" />
+      </Field>
+    </>
+  )
+}
 
 // Suggested "1 main = ? other" rate: the saved second-currency rate, else the latest one used.
 function suggestPerBase(data: AppData, currency: string): string {
@@ -233,6 +247,13 @@ export function OrderForm({
   const [dueDate, setDueDate] = useState(order?.dueDate ?? '')
   const [completedAt, setCompletedAt] = useState(order?.completedAt ?? '')
   const [notes, setNotes] = useState(order?.notes ?? '')
+  const [formError, setFormError] = useState('')
+  const floor = openFloor()
+  // An order whose month has closed keeps its start date. Its price is fixed once it is completed.
+  const startLocked = !!order?.startDate && isClosedDate(order.startDate)
+  const priceLocked = startLocked && order?.status === 'Completed'
+  // A completed order with no completed date (older records) can be filled in with any past date.
+  const missingCompletedDate = order?.status === 'Completed' && !order.completedAt
 
   // For a new order, picking a client fills in what they usually use.
   const pickClient = (cid: string) => {
@@ -252,6 +273,20 @@ export function OrderForm({
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
+    if (startDate && startDate !== (order?.startDate ?? '') && startDate < floor) {
+      setFormError(`That date is in a closed month. Orders can start from ${monthName(monthOf(floor))} ${floor.slice(0, 4)} onward.`)
+      return
+    }
+    const newCompleted = status === 'Completed' ? completedAt || today() : ''
+    if (newCompleted && newCompleted !== (order?.completedAt ?? '') && !missingCompletedDate && newCompleted < floor) {
+      setFormError('The completed date has to be in a month that is still open.')
+      return
+    }
+    if (newCompleted && startDate && newCompleted < startDate) {
+      setFormError('The completed date can not be before the start date.')
+      return
+    }
+    setFormError('')
     let cid = clientId
     if (cid === NEW_CLIENT) {
       if (!newClientName.trim()) return
@@ -310,7 +345,8 @@ export function OrderForm({
           </select>
         </Field>
         <Field label="Price">
-          <MoneyInput id="order-price" value={price} onChange={setPrice} step={s.amountStep} placeholder="Leave empty if not agreed" />
+          <MoneyInput id="order-price" value={price} onChange={setPrice} step={s.amountStep} placeholder="Leave empty if not agreed" disabled={priceLocked} />
+          {priceLocked && <span className="muted small">Fixed: this order is completed and its month is closed.</span>}
         </Field>
         <Field label="Currency">
           <select id="order-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
@@ -318,14 +354,15 @@ export function OrderForm({
           </select>
         </Field>
         <Field label="Start date">
-          <input id="order-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <input id="order-start" type="date" value={startDate} min={startLocked ? undefined : floor} onChange={(e) => setStartDate(e.target.value)} disabled={startLocked} />
+          {startLocked && <span className="muted small">Fixed: {monthName(monthOf(order?.startDate ?? ''))} is closed.</span>}
         </Field>
         <Field label="Due date">
-          <input id="order-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <input id="order-due" type="date" value={dueDate} min={startDate || undefined} onChange={(e) => setDueDate(e.target.value)} />
         </Field>
         {status === 'Completed' && (
           <Field label="Completed on">
-            <input id="order-completed" type="date" value={completedAt || today()} max={today()} min={startDate || undefined} onChange={(e) => setCompletedAt(e.target.value)} />
+            <input id="order-completed" type="date" value={completedAt || today()} max={today()} onChange={(e) => setCompletedAt(e.target.value)} />
           </Field>
         )}
         {status === 'Completed' && <span className="field-spacer" />}
@@ -336,6 +373,7 @@ export function OrderForm({
         <Field label="Notes" wide>
           <textarea id="order-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
+        {formError && <p className="notice bad wide" role="alert">{formError}</p>}
         <Actions
           onClose={onClose}
           deleteQuestion="Delete this order and its payments?"
@@ -364,8 +402,14 @@ export function PaymentForm({
   prefill?: { orderId?: string; clientId?: string; amount?: number; currency?: string }
   onClose: () => void
 }) {
-  const { data, savePayment, deletePayment } = useStore()
+  const { data, savePayment, deletePayment, correctRecord } = useStore()
   const base = data.settings.baseCurrency
+  const floor = openFloor()
+  // Money that arrived in a month that has closed can only be changed with a logged reason.
+  const closed = !!payment && payment.status === 'Received' && isClosedDate(payment.date)
+  const [reason, setReason] = useState('')
+  const [formError, setFormError] = useState('')
+  const [busy, setBusy] = useState(false)
   const [orderId, setOrderId] = useState(payment?.orderId ?? prefill?.orderId ?? '')
   const [clientId, setClientId] = useState(payment?.clientId ?? prefill?.clientId ?? '')
   const [date, setDate] = useState(payment?.date ?? today())
@@ -381,11 +425,40 @@ export function PaymentForm({
   const [notes, setNotes] = useState(payment?.notes ?? '')
   const order = data.orders.find((o) => o.id === orderId)
   const foreign = currency !== base
+  const orderMonth = order?.startDate ? monthOf(order.startDate) : ''
+  const payMonth = monthOf(date)
 
-  const submit = (e: FormEvent) => {
+  const fields = () => ({
+    date,
+    amount: Number(amount),
+    currency,
+    rate_to_base: foreign && Number(perBase) > 0 ? 1 / Number(perBase) : foreign ? 0 : 1,
+    method,
+    status,
+    notes: notes.trim(),
+  })
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     const amt = Number(amount)
     if (!amt || amt <= 0) return
+    if (status === 'Received' && date > today()) {
+      setFormError("A payment that has arrived can't be dated in the future. Use Expected for money that is still to come.")
+      return
+    }
+    if (!closed && status === 'Received' && date < floor) {
+      setFormError(`That date is in a closed month. Pick a date from ${monthName(monthOf(floor))} ${floor.slice(0, 4)} onward.`)
+      return
+    }
+    if (closed) {
+      setBusy(true)
+      const err = await correctRecord('payments', payment!.id, 'update', fields(), reason)
+      setBusy(false)
+      if (err) setFormError(err)
+      else onClose()
+      return
+    }
+    setFormError('')
     savePayment({
       id: payment?.id,
       orderId: orderId || null,
@@ -448,11 +521,28 @@ export function PaymentForm({
           </select>
         </Field>
         {foreign && <RateField id="pay-rate" base={base} currency={currency} perBase={perBase} setPerBase={setPerBase} amount={amount} />}
-        <Field label="Date">
-          <input id="pay-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+        <Field label="Date the money arrived">
+          <input
+            id="pay-date"
+            type="date"
+            value={date}
+            min={closed || status === 'Expected' ? undefined : floor}
+            max={closed || status === 'Received' ? today() : undefined}
+            onChange={(e) => setDate(e.target.value)}
+            required
+          />
         </Field>
         <Field label="Status">
-          <select id="pay-status" value={status} onChange={(e) => setStatus(e.target.value as PaymentStatus)}>
+          <select
+            id="pay-status"
+            value={status}
+            onChange={(e) => {
+              const next = e.target.value as PaymentStatus
+              setStatus(next)
+              // Money that is now in arrived today, unless a date in an open month is already set.
+              if (next === 'Received' && !closed && (date < floor || date > today())) setDate(today())
+            }}
+          >
             <option value="Received">Received</option>
             <option value="Expected">Expected (not in yet)</option>
           </select>
@@ -464,17 +554,31 @@ export function PaymentForm({
         <Field label="Notes" wide>
           <textarea id="pay-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
+        {!payment && status === 'Received' && order?.startDate && orderMonth !== payMonth && (
+          <p className="hint wide" role="status">
+            This order is from {monthName(orderMonth)}. This payment counts in {monthName(payMonth)}, the day the money arrived.
+          </p>
+        )}
+        {closed && <ClosedMonthReason date={payment!.date} reason={reason} setReason={setReason} />}
+        {formError && <p className="notice bad wide" role="alert">{formError}</p>}
         <Actions
           onClose={onClose}
-          deleteQuestion="Delete this payment?"
+          deleteQuestion={closed ? 'Delete this payment from a closed month? It will be logged with your reason.' : 'Delete this payment?'}
           onDelete={
             payment
-              ? () => {
+              ? async () => {
+                  if (closed) {
+                    const err = await correctRecord('payments', payment.id, 'delete', {}, reason)
+                    if (err) setFormError(err)
+                    else onClose()
+                    return
+                  }
                   deletePayment(payment.id)
                   onClose()
                 }
               : undefined
           }
+          busy={busy}
         />
       </form>
     </Modal>
@@ -483,8 +587,13 @@ export function PaymentForm({
 
 // ---------- Expense ----------
 export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Expense | null; prefillOrderId?: string; onClose: () => void }) {
-  const { data, saveExpense, deleteExpense } = useStore()
+  const { data, saveExpense, deleteExpense, correctRecord } = useStore()
   const base = data.settings.baseCurrency
+  const floor = openFloor()
+  const closed = !!expense && isClosedDate(expense.date)
+  const [reason, setReason] = useState('')
+  const [formError, setFormError] = useState('')
+  const [busy, setBusy] = useState(false)
   const [orderId, setOrderId] = useState(expense?.orderId ?? prefillOrderId ?? '')
   const [date, setDate] = useState(expense?.date ?? today())
   const [amount, setAmount] = useState(expense ? String(expense.amount) : '')
@@ -500,10 +609,33 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
   const order = data.orders.find((o) => o.id === orderId)
   const foreign = currency !== base
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     const amt = Number(amount)
     if (!amt || amt <= 0) return
+    if (date > today()) {
+      setFormError("An expense can't be dated in the future.")
+      return
+    }
+    if (!closed && date < floor) {
+      setFormError(`That date is in a closed month. Pick a date from ${monthName(monthOf(floor))} ${floor.slice(0, 4)} onward.`)
+      return
+    }
+    if (closed) {
+      setBusy(true)
+      const err = await correctRecord(
+        'expenses',
+        expense!.id,
+        'update',
+        { date, amount: amt, currency, rate_to_base: foreign && Number(perBase) > 0 ? 1 / Number(perBase) : foreign ? 0 : 1, category, method, notes: notes.trim(), order_id: orderId || null },
+        reason,
+      )
+      setBusy(false)
+      if (err) setFormError(err)
+      else onClose()
+      return
+    }
+    setFormError('')
     saveExpense({
       id: expense?.id,
       orderId: orderId || null,
@@ -535,7 +667,7 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
           <ListSelect id="exp-category" list="categories" noun="category" emptyLabel="Not set" value={category} onChange={setCategory} />
         </Field>
         <Field label="Date">
-          <input id="exp-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          <input id="exp-date" type="date" value={date} min={closed ? undefined : floor} max={today()} onChange={(e) => setDate(e.target.value)} required />
         </Field>
         <Field label="Paid with">
           <ListSelect id="exp-method" list="methods" noun="method" emptyLabel="Not set" value={method} onChange={setMethod} />
@@ -553,17 +685,26 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
         <Field label="What was it for?" wide>
           <input id="exp-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Platform fee, monthly data" />
         </Field>
+        {closed && <ClosedMonthReason date={expense!.date} reason={reason} setReason={setReason} />}
+        {formError && <p className="notice bad wide" role="alert">{formError}</p>}
         <Actions
           onClose={onClose}
-          deleteQuestion="Delete this expense?"
+          deleteQuestion={closed ? 'Delete this expense from a closed month? It will be logged with your reason.' : 'Delete this expense?'}
           onDelete={
             expense
-              ? () => {
+              ? async () => {
+                  if (closed) {
+                    const err = await correctRecord('expenses', expense.id, 'delete', {}, reason)
+                    if (err) setFormError(err)
+                    else onClose()
+                    return
+                  }
                   deleteExpense(expense.id)
                   onClose()
                 }
               : undefined
           }
+          busy={busy}
         />
       </form>
     </Modal>

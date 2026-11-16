@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon'
 import { FilesCard } from '../components/Files'
 import type { Go } from '../App'
 import { ORDER_STATUSES, OPEN_STATUSES, type Order, type OrderStatus } from '../types'
-import { clientName, daysBetween, formatMoney, orderBalance, orderReceived, orderSpent, today } from '../utils'
+import { clientName, daysBetween, formatMoney, monthLabel, monthOf, orderBalance, orderReceived, orderSpent, today } from '../utils'
 import { newId } from '../storage'
 
 const TONE: Record<OrderStatus, 'good' | 'warn' | 'bad' | 'muted' | 'info'> = {
@@ -44,8 +44,12 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
   const { data } = useStore()
   const [view, setView] = useState<View>('open')
   const [query, setQuery] = useState('')
+  const [month, setMonth] = useState('') // '' = every month; otherwise the month the order started
   const [adding, setAdding] = useState(initialId === 'new')
   const now = today()
+
+  // Months that have orders, newest first, by the month each order started.
+  const orderMonths = useMemo(() => [...new Set(data.orders.map((o) => (o.startDate ? monthOf(o.startDate) : '')).filter(Boolean))].sort().reverse(), [data.orders])
 
   const counts = useMemo(() => {
     const open = data.orders.filter((o) => !['Completed', 'Cancelled'].includes(o.status))
@@ -64,9 +68,10 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
         if (view === 'all') return true
         return o.status === view
       })
+      .filter((o) => !month || (month === 'none' ? !o.startDate : !!o.startDate && monthOf(o.startDate) === month))
       .filter((o) => !q || [o.title, o.service, o.notes, clientName(data, o.clientId)].some((v) => v.toLowerCase().includes(q)))
       .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'))
-  }, [data, view, query, now])
+  }, [data, view, query, month, now])
 
   const chips: { id: View; label: string; count?: number }[] = [
     { id: 'open', label: 'Open', count: counts.open },
@@ -106,6 +111,15 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
               {s}
             </option>
           ))}
+        </select>
+        <select id="order-month-filter" className="chip-select" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Filter by the month the order started">
+          <option value="">All months</option>
+          {orderMonths.map((m) => (
+            <option key={m} value={m}>
+              Started {monthLabel(m, true)}
+            </option>
+          ))}
+          {data.orders.some((o) => !o.startDate) && <option value="none">No start date</option>}
         </select>
       </div>
 
@@ -239,6 +253,15 @@ export function OrderDetail({ go, id }: { go: Go; id: string }) {
           </button>
         </div>
       </div>
+
+      {order.status === 'Completed' && !order.completedAt && (
+        <div className="banner" role="status">
+          <span className="grow">This order is completed but has no completed date. Add the real date so your statistics are right.</span>
+          <button className="primary" onClick={() => setEditing(true)}>
+            Add the date
+          </button>
+        </div>
+      )}
 
       {order.status === 'Completed' && bal !== null && bal > 0 && (
         <div className="banner" role="status">

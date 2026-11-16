@@ -184,6 +184,24 @@ export function Home({ go }: { go: Go }) {
         )}
       </div>
 
+      {!isEmpty && gw.open && gw.month && targetGoal === null && (
+        <div className="banner goal-prompt" role="status">
+          <span className="grow">
+            <strong>Set your {monthLabel(gw.month, true)} goal.</strong> Goal setting is open until {fmtDay(`${gw.month}-05`)}, then it locks.
+          </span>
+          <button
+            className="primary"
+            onClick={() => {
+              setGoalInput('')
+              setEditingGoal(true)
+              setTimeout(() => document.getElementById('goal-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+            }}
+          >
+            <Icon name="target" size={18} /> Set goal
+          </button>
+        </div>
+      )}
+
       {isEmpty ? (
         <section className="card welcome">
           <h2>Set up your workspace</h2>
@@ -249,7 +267,7 @@ export function Home({ go }: { go: Go }) {
             </section>
 
             <div className="stack">
-              <section className="card">
+              <section className="card" id="goal-card">
                 <div className="card-head">
                   <h2><Icon name="target" size={18} /> {monthLabel(month)} goal</h2>
                   <button className="link small" onClick={() => go('reports')}>
