@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { StoreProvider, useStore, type Account } from './store'
 import { supabase } from './supabase'
@@ -7,11 +7,6 @@ import { Home } from './pages/Home'
 import { ClientDetail, Clients } from './pages/Clients'
 import { OrderDetail, Orders } from './pages/Orders'
 import { Money } from './pages/Money'
-import { Reports } from './pages/Reports'
-import { DailyLog } from './pages/DailyLog'
-import { Settings } from './pages/Settings'
-import { Admin } from './pages/Admin'
-import { PrivacyPage, TermsPage } from './pages/Legal'
 import { FeedbackDialog } from './components/FeedbackDialog'
 import { Search } from './components/Search'
 import { Notifications } from './components/Notifications'
@@ -21,9 +16,20 @@ import { Icon } from './components/Icon'
 import { CurrencySwitch } from './components/CurrencySwitch'
 import { SetupWelcome } from './components/Setup'
 import { ensureEmailPrefs } from './components/EmailReminders'
-import { elapsed, useNow } from './pages/DailyLog'
+import { elapsed, useNow } from './timer'
+import { ToastProvider } from './components/Toast'
+import { PageSkeleton, Sheet, SheetRow } from './components/ui'
 import logo from './assets/logo-mark.png?inline'
 import './App.css'
+import './system.css'
+
+// Pages people open less often load on demand, so the first screen is faster.
+const Reports = lazy(() => import('./pages/Reports').then((m) => ({ default: m.Reports })))
+const DailyLog = lazy(() => import('./pages/DailyLog').then((m) => ({ default: m.DailyLog })))
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
+const Admin = lazy(() => import('./pages/Admin').then((m) => ({ default: m.Admin })))
+const PrivacyPage = lazy(() => import('./pages/Legal').then((m) => ({ default: m.PrivacyPage })))
+const TermsPage = lazy(() => import('./pages/Legal').then((m) => ({ default: m.TermsPage })))
 
 export type Page = 'home' | 'clients' | 'client' | 'orders' | 'order' | 'money' | 'reports' | 'daily' | 'settings' | 'admin'
 export type Go = (page: Page, id?: string | null) => void
@@ -107,8 +113,11 @@ function Shell() {
           </div>
           <Search onOpen={(page, id) => go(page, id)} />
           <TimerPill onOpen={() => go('daily')} />
-          <CurrencySwitch />
+          <div className="desk-only">
+            <CurrencySwitch />
+          </div>
           <Notifications onOpen={(page, id) => go(page, id)} />
+          <QuickAdd onPick={onQuick} variant="top" />
         </header>
 
         {error && (
@@ -120,9 +129,10 @@ function Shell() {
         )}
 
         {status === 'loading' ? (
-          <div className="page"><p className="muted">Loading your data…</p></div>
+          <PageSkeleton />
         ) : (
           <main key={route.key}>
+            <Suspense fallback={<PageSkeleton />}>
             {route.page === 'home' && <Home go={go} />}
             {route.page === 'clients' && <Clients go={go} initialId={route.id} />}
             {route.page === 'client' && route.id && <ClientDetail go={go} id={route.id} />}
@@ -133,6 +143,7 @@ function Shell() {
             {route.page === 'daily' && <DailyLog open={route.id === 'entry' || route.id === 'new' ? 'entry' : route.id === 'timer' ? 'timer' : undefined} />}
             {route.page === 'settings' && <Settings focus={route.id} />}
             {route.page === 'admin' && <Admin />}
+            </Suspense>
           </main>
         )}
 
@@ -144,32 +155,36 @@ function Shell() {
       <nav className="tabbar" aria-label="Main">
         {NAV.filter((n) => TABS.includes(n.id)).map((n) => (
           <button key={n.id} className={isActive(n) ? 'tab active' : 'tab'} onClick={() => go(n.id)} aria-current={isActive(n) ? 'page' : undefined}>
-            <Icon name={n.icon} size={22} />
+            <span className="tab-icon"><Icon name={n.icon} size={22} /></span>
             <span>{n.label}</span>
           </button>
         ))}
-        <button className={moreActive ? 'tab active' : 'tab'} onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}>
-          <Icon name="more" size={22} />
+        <button className={moreActive || moreOpen ? 'tab active' : 'tab'} onClick={() => setMoreOpen((v) => !v)} aria-haspopup="dialog" aria-expanded={moreOpen}>
+          <span className="tab-icon"><Icon name="more" size={22} /></span>
           <span>More</span>
         </button>
       </nav>
-      {!['settings', 'admin'].includes(route.page) && <QuickAdd onPick={onQuick} variant="fab" />}
 
       {moreOpen && (
-        <div className="sheet-overlay" onClick={() => setMoreOpen(false)}>
-          <div className="sheet" role="menu" onClick={(e) => e.stopPropagation()}>
-            {nav.filter((n) => !TABS.includes(n.id)).map((n) => (
-              <button key={n.id} role="menuitem" onClick={() => go(n.id)}>
-                <Icon name={n.icon} /> {n.label}
-              </button>
-            ))}
-            {account && (
-              <button role="menuitem" onClick={account.signOut}>
-                <Icon name="logout" /> Sign out
-              </button>
-            )}
+        <Sheet title="More" onClose={() => setMoreOpen(false)}>
+          {account && (
+            <div className="sheet-account">
+              <span className="avatar" aria-hidden="true">{(account.name || account.email || '?').slice(0, 1).toUpperCase()}</span>
+              <span className="grow min0">
+                {account.name && <strong className="block ellipsis">{account.name}</strong>}
+                <span className="muted small block ellipsis">{account.email}</span>
+              </span>
+            </div>
+          )}
+          <div className="sheet-currency">
+            <CurrencySwitch />
           </div>
-        </div>
+          {nav.filter((n) => !TABS.includes(n.id)).map((n) => (
+            <SheetRow key={n.id} icon={n.icon} label={n.label} onClick={() => go(n.id)} />
+          ))}
+          {account && <SheetRow icon="message" label="Send feedback" onClick={() => { setMoreOpen(false); setFeedbackOpen(true) }} />}
+          {account && <SheetRow icon="logout" label="Sign out" tone="danger" onClick={account.signOut} />}
+        </Sheet>
       )}
 
       {mode === 'cloud' && status === 'ready' && !error && !data.settings.onboarded && <SetupWelcome />}
@@ -260,7 +275,9 @@ function AccountGate() {
   if (!account) return <AuthScreen />
   return (
     <StoreProvider key={account.userId} account={account}>
-      <Shell />
+      <ToastProvider>
+        <Shell />
+      </ToastProvider>
     </StoreProvider>
   )
 }
@@ -311,14 +328,16 @@ function Unsubscribe({ token }: { token: string }) {
 
 export default function App() {
   const path = window.location.pathname.replace(/\/+$/, '')
-  if (path === '/privacy') return <PrivacyPage />
-  if (path === '/terms') return <TermsPage />
+  if (path === '/privacy') return <Suspense fallback={null}><PrivacyPage /></Suspense>
+  if (path === '/terms') return <Suspense fallback={null}><TermsPage /></Suspense>
   const unsubToken = new URLSearchParams(window.location.search).get('unsubscribe')
   if (unsubToken) return <Unsubscribe token={unsubToken} />
   if (PREVIEW) {
     return (
       <StoreProvider>
-        <Shell />
+        <ToastProvider>
+          <Shell />
+        </ToastProvider>
       </StoreProvider>
     )
   }

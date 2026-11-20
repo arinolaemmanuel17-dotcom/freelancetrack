@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { attentionItems, today } from '../utils'
 import type { Page } from '../App'
+import { Icon } from './Icon'
 
 export function Notifications({ onOpen }: { onOpen: (page: Page, id: string) => void }) {
   const { data } = useStore()
@@ -39,18 +40,21 @@ export function Notifications({ onOpen }: { onOpen: (page: Page, id: string) => 
         aria-label={`Notifications, ${items.length} item(s)`}
         aria-expanded={open}
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-          <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-        </svg>
+        <Icon name="bell" size={20} />
         {items.length > 0 && <span className={urgent > 0 ? 'count urgent' : 'count'}>{items.length > 99 ? '99+' : items.length}</span>}
       </button>
 
       {open && (
         <div className="notif-panel" role="menu">
-          <div className="notif-head">Notifications</div>
+          <div className="notif-head">
+            <span>Needs attention</span>
+            {items.length > 0 && <span className="muted small">{items.length}</span>}
+          </div>
           {items.length === 0 ? (
-            <div className="notif-empty">You're all caught up.</div>
+            <div className="notif-empty">
+              <span className="n-icon ok" aria-hidden="true"><Icon name="check" size={18} /></span>
+              You're all caught up.
+            </div>
           ) : (
             items.map((i) => (
               <button
@@ -59,8 +63,11 @@ export function Notifications({ onOpen }: { onOpen: (page: Page, id: string) => 
                 role="menuitem"
                 onClick={() => openItem(i.orderId, i.clientId, i.page)}
               >
-                <span className={`dot ${i.level}`} aria-hidden="true" />
-                <span>{i.text}</span>
+                <span className={`n-icon ${i.level}`} aria-hidden="true">
+                  <Icon name={i.level === 'high' ? 'alert' : i.level === 'medium' ? 'clock' : 'info'} size={18} />
+                </span>
+                <span className="grow">{i.text}</span>
+                <Icon name="chevron" size={16} />
               </button>
             ))
           )}

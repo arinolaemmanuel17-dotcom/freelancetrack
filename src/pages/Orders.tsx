@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useStore } from '../store'
-import { Badge, Empty } from '../components/ui'
+import { Badge, Empty, rowProps } from '../components/ui'
 import { ExpenseForm, OrderForm, PaymentForm } from '../components/Forms'
 import { Icon } from '../components/Icon'
 import { FilesCard } from '../components/Files'
@@ -86,12 +86,12 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
           <h1>Orders</h1>
           <p className="muted small">{counts.open} open · {counts.overdue} overdue</p>
         </div>
-        <button className="primary" onClick={() => setAdding(true)}>
+        <button className="primary desk-only" onClick={() => setAdding(true)}>
           <Icon name="plus" size={18} /> New order
         </button>
       </div>
 
-      <div className="chips" role="tablist" aria-label="Order views">
+      <div className="chips chip-scroll" role="tablist" aria-label="Order views">
         {chips.map((c) => (
           <button key={c.id} role="tab" aria-selected={view === c.id} className={view === c.id ? 'chip active' : 'chip'} onClick={() => setView(c.id)}>
             {c.label}
@@ -112,21 +112,46 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
             </option>
           ))}
         </select>
-        <select id="order-month-filter" className="chip-select" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Filter by the month the order started">
-          <option value="">All months</option>
-          {orderMonths.map((m) => (
-            <option key={m} value={m}>
-              Started {monthLabel(m, true)}
-            </option>
-          ))}
-          {data.orders.some((o) => !o.startDate) && <option value="none">No start date</option>}
-        </select>
       </div>
+
+      {(orderMonths.length > 0 || data.orders.some((o) => !o.startDate)) && (
+        <div className="chip-scroll" role="group" aria-label="Month the order started" id="order-month-filter">
+          <button className={month === '' ? 'chip active' : 'chip'} aria-pressed={month === ''} onClick={() => setMonth('')}>
+            All months
+          </button>
+          {orderMonths.map((m) => (
+            <button key={m} className={month === m ? 'chip active' : 'chip'} aria-pressed={month === m} onClick={() => setMonth(m)}>
+              {monthLabel(m, true)}
+            </button>
+          ))}
+          {data.orders.some((o) => !o.startDate) && (
+            <button className={month === 'none' ? 'chip active' : 'chip'} aria-pressed={month === 'none'} onClick={() => setMonth('none')}>
+              No start date
+            </button>
+          )}
+        </div>
+      )}
 
       <input id="order-filter" className="search-input" placeholder="Filter by job, client, service or notes" value={query} onChange={(e) => setQuery(e.target.value)} />
 
       {rows.length === 0 ? (
-        <Empty>{data.orders.length === 0 ? 'No orders yet. Create your first order.' : 'No orders in this view.'}</Empty>
+        data.orders.length === 0 ? (
+          <Empty
+            icon="orders"
+            title="No orders yet"
+            action={
+              <button className="primary" onClick={() => setAdding(true)}>
+                <Icon name="plus" size={18} /> Create your first order
+              </button>
+            }
+          >
+            An order is one job: who it's for, the price and the due date.
+          </Empty>
+        ) : (
+          <Empty icon="search" title="No orders here">
+            Nothing matches this view. Try All months, or a different stage.
+          </Empty>
+        )
       ) : (
         <div className="table-card">
           <div className="trow thead orders-grid">
@@ -142,7 +167,7 @@ export function Orders({ go, initialId }: { go: Go; initialId?: string | null })
             const spent = orderSpent(data, o)
             const due = dueLabel(o, now)
             return (
-              <div key={o.id} className="trow orders-grid clickable" onClick={() => go('order', o.id)}>
+              <div key={o.id} className="trow orders-grid clickable" {...rowProps(() => go('order', o.id))}>
                 <span className="cell-main">
                   <span>
                     <strong>{o.title}</strong>
@@ -309,13 +334,11 @@ export function OrderDetail({ go, id }: { go: Go; id: string }) {
             <span className="date-label">Started</span>
             <strong>{order.startDate ? shortDate(order.startDate, true) : 'Not set'}</strong>
           </div>
-          <div className="date-line" aria-hidden="true" />
           <div className={order.dueDate ? 'date-step done' : 'date-step'}>
             <span className="date-label">Due</span>
             <strong>{order.dueDate ? shortDate(order.dueDate, true) : 'Not set'}</strong>
             {due && <small className={`${due.tone}-text`}>{due.text}</small>}
           </div>
-          <div className="date-line" aria-hidden="true" />
           <div className={order.completedAt ? 'date-step done final' : 'date-step'}>
             <span className="date-label">Completed</span>
             <strong>{order.completedAt ? shortDate(order.completedAt, true) : order.status === 'Cancelled' ? 'Cancelled' : 'Not yet'}</strong>

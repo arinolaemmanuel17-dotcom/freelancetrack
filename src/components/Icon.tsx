@@ -25,12 +25,20 @@ const PATHS: Record<string, string> = {
   shield: 'M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3zM9 12l2 2 4-4',
   message: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12zM8.5 10.5h7M8.5 13.5h4',
   send: 'M21 3 10 14M21 3l-7 18-4-7-7-4 18-7z',
+  close: 'M6 6l12 12M18 6L6 18',
+  chevron: 'M9 6l6 6-6 6',
+  calendar: 'M7 3v3M17 3v3M4 8h16M5 5h14v15H5z',
+  alert: 'M12 4l9 16H3L12 4zM12 10v4M12 17.5h.01',
+  info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 8h.01',
+  arrowup: 'M12 19V5M6 11l6-6 6 6',
+  arrowdown: 'M12 5v14M6 13l6 6 6-6',
+  inbox: 'M4 13l2-8h12l2 8v6H4v-6zM4 13h5l1 2h4l1-2h5',
   refresh: 'M20 11a8 8 0 0 0-14.6-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5L20 16M20 20v-4h-4',
 }
 
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       <path d={PATHS[name] ?? ''} />
     </svg>
   )

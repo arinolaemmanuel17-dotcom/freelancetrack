@@ -55,70 +55,111 @@ export function AuthScreen() {
   const title = mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create your account' : 'Reset your password'
 
   return (
-    <div className="auth">
-      <div className="auth-card">
+    <div className="landing">
+      <header className="landing-head">
         <Brand />
-        <h1>{title}</h1>
-        <p className="muted small">
-          {mode === 'signup'
-            ? 'Track clients, orders and payments in one place. Your records are private to your account.'
-            : mode === 'reset'
-              ? "Enter your account email and we'll send you a link to set a new password."
-              : 'Welcome back.'}
-        </p>
-        <form className="form one" onSubmit={submit}>
-          {mode === 'signup' && (
-            <Field label="Your name" wide>
-              <input id="auth-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="What should we call you?" maxLength={60} required />
-            </Field>
-          )}
-          <Field label="Email" wide>
-            <input id="auth-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </Field>
-          {mode !== 'reset' && (
-            <Field label={mode === 'signup' ? 'Password (at least 8 characters)' : 'Password'} wide>
-              <input
-                id="auth-password"
-                type="password"
-                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                minLength={mode === 'signup' ? 8 : undefined}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </Field>
-          )}
-          {message && <p className={`notice ${message.tone}`} role="status">{message.text}</p>}
-          {mode === 'signup' && (
-            <p className="muted small legal-note">
-              By creating an account you agree to our <a href="/terms" target="_blank" rel="noopener">Terms of Use</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+      </header>
+      <main className="landing-grid">
+        <section className="landing-copy">
+          <h1>Know what you've earned, what you're owed, and what's due.</h1>
+          <p className="lede">
+            Freelance Tracker keeps your clients, orders, payments and expenses in one place, so month-end takes minutes instead of an afternoon with a spreadsheet.
+          </p>
+          <ul className="points">
+            <li>
+              <strong>Every order shows its balance</strong>
+              <span>Price, paid, spent and what's still owed, on one screen.</span>
+            </li>
+            <li>
+              <strong>Months close properly</strong>
+              <span>Each month locks on the 5th of the next. Later changes are logged with a reason, so your numbers stay trustworthy.</span>
+            </li>
+            <li>
+              <strong>Made for your phone</strong>
+              <span>Record a payment in a few taps, in naira, dollars or another currency.</span>
+            </li>
+          </ul>
+          <figure className="peek" aria-label="Example of the Home screen">
+            <div className="hero-card">
+              <span className="hero-label">Earned in November</span>
+              <strong className="hero-value">$1,240</strong>
+              <span className="hero-delta">Up 18% on Oct</span>
+              <dl className="hero-split">
+                <div><dt>Spent</dt><dd>$96</dd></div>
+                <div><dt>Profit</dt><dd>$1,144</dd></div>
+              </dl>
+            </div>
+            <div className="peek-row">
+              <div className="tile"><span className="tile-label">Owed to you</span><strong className="tile-value">$380</strong><span className="tile-sub">On unfinished work</span></div>
+              <div className="tile"><span className="tile-label">Next deadline</span><strong className="tile-value tile-text">Logo pack</strong><span className="tile-sub warn-text">Due tomorrow</span></div>
+            </div>
+            <figcaption>Example with made-up numbers.</figcaption>
+          </figure>
+        </section>
+            <div className="auth-card">
+            <h2 className="auth-title">{title}</h2>
+            <p className="muted small">
+              {mode === 'signup'
+                ? 'Track clients, orders and payments in one place. Your records are private to your account.'
+                : mode === 'reset'
+                  ? "Enter your account email and we'll send you a link to set a new password."
+                  : 'Welcome back.'}
             </p>
-          )}
-          <button className="primary wide-btn" type="submit" disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
-          </button>
-        </form>
-        <div className="auth-links small">
-          {mode !== 'signin' && (
-            <button className="link" onClick={() => { setMode('signin'); setMessage(null) }}>
-              I already have an account
-            </button>
-          )}
-          {mode !== 'signup' && (
-            <button className="link" onClick={() => { setMode('signup'); setMessage(null) }}>
-              Create an account
-            </button>
-          )}
-          {mode === 'signin' && (
-            <button className="link" onClick={() => { setMode('reset'); setMessage(null) }}>
-              Forgot password?
-            </button>
-          )}
-        </div>
-        <p className="muted small auth-legal">
-          <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
-        </p>
-      </div>
+            <form className="form one" onSubmit={submit}>
+              {mode === 'signup' && (
+                <Field label="Your name" wide>
+                  <input id="auth-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="What should we call you?" maxLength={60} required />
+                </Field>
+              )}
+              <Field label="Email" wide>
+                <input id="auth-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </Field>
+              {mode !== 'reset' && (
+                <Field label={mode === 'signup' ? 'Password (at least 8 characters)' : 'Password'} wide>
+                  <input
+                    id="auth-password"
+                    type="password"
+                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                    minLength={mode === 'signup' ? 8 : undefined}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </Field>
+              )}
+              {message && <p className={`notice ${message.tone}`} role="status">{message.text}</p>}
+              {mode === 'signup' && (
+                <p className="muted small legal-note">
+                  By creating an account you agree to our <a href="/terms" target="_blank" rel="noopener">Terms of Use</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+                </p>
+              )}
+              <button className="primary wide-btn" type="submit" disabled={busy}>
+                {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
+              </button>
+            </form>
+            <div className="auth-links small">
+              {mode !== 'signin' && (
+                <button className="link" onClick={() => { setMode('signin'); setMessage(null) }}>
+                  I already have an account
+                </button>
+              )}
+              {mode !== 'signup' && (
+                <button className="link" onClick={() => { setMode('signup'); setMessage(null) }}>
+                  Create an account
+                </button>
+              )}
+              {mode === 'signin' && (
+                <button className="link" onClick={() => { setMode('reset'); setMessage(null) }}>
+                  Forgot password?
+                </button>
+              )}
+            </div>
+          </div>
+      </main>
+      <footer className="landing-foot">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </footer>
     </div>
   )
 }

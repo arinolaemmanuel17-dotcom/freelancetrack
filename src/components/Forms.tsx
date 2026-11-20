@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useStore } from '../store'
 import { ConfirmButton, Field, Modal, MoneyInput, Options } from './ui'
+import { useToast } from './Toast'
 import { ORDER_STATUSES, type Client, type Expense, type Order, type OrderStatus, type Payment, type PaymentStatus } from '../types'
 import { clientName, formatMoney, isClosedDate, monthName, monthOf, openFloor, rateFor, similarClients, today } from '../utils'
 import type { AppData } from '../types'
@@ -147,6 +148,7 @@ export function ClientForm({
   onOpenExisting?: (id: string) => void
 }) {
   const { data, saveClient, deleteClient } = useStore()
+  const { toast } = useToast()
   const [name, setName] = useState(client?.name ?? '')
   const [contact, setContact] = useState(client?.contact ?? '')
   const [platform, setPlatform] = useState(client?.platform ?? '')
@@ -158,6 +160,7 @@ export function ClientForm({
     if (!name.trim()) return
     const id = saveClient({ id: client?.id, name: name.trim(), contact: contact.trim(), platform, notes: notes.trim() })
     onSaved?.(id)
+    toast(client ? 'Client saved' : 'Client added')
     onClose()
   }
 
@@ -201,6 +204,7 @@ export function ClientForm({
             client
               ? () => {
                   deleteClient(client.id)
+                  toast('Client deleted')
                   onClose()
                 }
               : undefined
@@ -228,6 +232,7 @@ export function OrderForm({
   onDeleted?: () => void
 }) {
   const { data, saveOrder, deleteOrder, saveClient } = useStore()
+  const { toast } = useToast()
   const s = data.settings
   const lastOrderOf = (cid: string) =>
     [...data.orders].filter((o) => o.clientId === cid).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
@@ -307,6 +312,7 @@ export function OrderForm({
       notes: notes.trim(),
     })
     onSaved?.(id)
+    toast(order ? 'Order saved' : 'Order created')
     onClose()
   }
 
@@ -381,6 +387,7 @@ export function OrderForm({
             order
               ? () => {
                   deleteOrder(order.id)
+                  toast('Order deleted')
                   onClose()
                   onDeleted?.()
                 }
@@ -403,6 +410,7 @@ export function PaymentForm({
   onClose: () => void
 }) {
   const { data, savePayment, deletePayment, correctRecord } = useStore()
+  const { toast } = useToast()
   const base = data.settings.baseCurrency
   const floor = openFloor()
   // Money that arrived in a month that has closed can only be changed with a logged reason.
@@ -455,7 +463,10 @@ export function PaymentForm({
       const err = await correctRecord('payments', payment!.id, 'update', fields(), reason)
       setBusy(false)
       if (err) setFormError(err)
-      else onClose()
+      else {
+        toast('Correction logged')
+        onClose()
+      }
       return
     }
     setFormError('')
@@ -471,6 +482,7 @@ export function PaymentForm({
       status,
       notes: notes.trim(),
     })
+    toast(payment ? 'Payment saved' : status === 'Received' ? 'Payment recorded' : 'Expected payment saved')
     onClose()
   }
 
@@ -570,10 +582,15 @@ export function PaymentForm({
                   if (closed) {
                     const err = await correctRecord('payments', payment.id, 'delete', {}, reason)
                     if (err) setFormError(err)
-                    else onClose()
+                    else {
+                      toast('Correction logged')
+                      onClose()
+                    }
                     return
                   }
+                  const copy = payment
                   deletePayment(payment.id)
+                  toast('Payment deleted', { label: 'Undo', run: () => savePayment({ ...copy }) })
                   onClose()
                 }
               : undefined
@@ -588,6 +605,7 @@ export function PaymentForm({
 // ---------- Expense ----------
 export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Expense | null; prefillOrderId?: string; onClose: () => void }) {
   const { data, saveExpense, deleteExpense, correctRecord } = useStore()
+  const { toast } = useToast()
   const base = data.settings.baseCurrency
   const floor = openFloor()
   const closed = !!expense && isClosedDate(expense.date)
@@ -632,7 +650,10 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
       )
       setBusy(false)
       if (err) setFormError(err)
-      else onClose()
+      else {
+        toast('Correction logged')
+        onClose()
+      }
       return
     }
     setFormError('')
@@ -648,6 +669,7 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
       method,
       notes: notes.trim(),
     })
+    toast(expense ? 'Expense saved' : 'Expense added')
     onClose()
   }
 
@@ -696,10 +718,15 @@ export function ExpenseForm({ expense, prefillOrderId, onClose }: { expense: Exp
                   if (closed) {
                     const err = await correctRecord('expenses', expense.id, 'delete', {}, reason)
                     if (err) setFormError(err)
-                    else onClose()
+                    else {
+                      toast('Correction logged')
+                      onClose()
+                    }
                     return
                   }
+                  const copy = expense
                   deleteExpense(expense.id)
+                  toast('Expense deleted', { label: 'Undo', run: () => saveExpense({ ...copy }) })
                   onClose()
                 }
               : undefined

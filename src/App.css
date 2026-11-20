@@ -250,10 +250,7 @@ input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--accent);
 .auth-links { display: flex; gap: 14px; flex-wrap: wrap; }
 
 /* ---------- phone ---------- */
-.tabbar, .quick.fab { display: none; }
-.sheet-overlay { position: fixed; inset: 0; z-index: 55; background: rgba(8, 12, 10, 0.4); display: flex; align-items: flex-end; }
-.sheet { width: 100%; background: var(--surface); border-radius: 16px 16px 0 0; padding: 10px 10px calc(84px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; }
-.sheet button { justify-content: flex-start; gap: 12px; border: 0; background: none; padding: 14px; font-size: 16px; }
+.tabbar { display: none; }
 
 @media (max-width: 1000px) {
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -279,9 +276,6 @@ input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--accent);
   }
   .tabbar .tab { flex-direction: column; gap: 2px; border: 0; background: none; color: var(--muted); font-size: 11px; font-weight: 500; padding: 6px 0; }
   .tabbar .tab.active { color: var(--accent-strong); }
-  .quick.fab { display: block; position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 52; }
-  .fab-btn { width: 56px; height: 56px; padding: 0; border-radius: 18px; background: var(--accent); color: var(--accent-text); border: 0; box-shadow: 0 6px 18px rgba(18, 113, 91, 0.35); }
-  .quick.fab .menu { left: auto; right: 0; top: auto; bottom: calc(100% + 8px); }
 
   /* table rows become stacked cards */
   .trow.thead { display: none; }

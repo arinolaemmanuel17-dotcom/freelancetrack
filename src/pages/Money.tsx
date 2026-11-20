@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../store'
-import { Badge, Empty } from '../components/ui'
+import { Badge, Empty, rowProps } from '../components/ui'
 import { ExpenseForm, PaymentForm } from '../components/Forms'
 import { Icon } from '../components/Icon'
 import type { Go } from '../App'
@@ -45,7 +45,7 @@ export function Money({ go, initialId, initialTab }: { go: Go; initialId?: strin
           <h1>Money</h1>
           <p className="muted small">Everything that came in and went out.</p>
         </div>
-        <div className="head-actions">
+        <div className="head-actions desk-only">
           <button className="ghost" onClick={() => setEditExp('new')}>
             <Icon name="expense" size={18} /> Add expense
           </button>
@@ -94,11 +94,13 @@ export function Money({ go, initialId, initialTab }: { go: Go; initialId?: strin
 
       {tab === 'payments' ? (
         payments.length === 0 ? (
-          <Empty>No payments in this period.</Empty>
+          <Empty icon="money" title="No payments in this period" action={<button className="primary" onClick={() => setEditPay('new')}><Icon name="plus" size={18} /> Record payment</button>}>
+            Money you receive shows here, grouped by the day it arrived.
+          </Empty>
         ) : (
           <div className="table-card">
             {payments.map((p) => (
-              <div key={p.id} className="trow money-grid clickable" onClick={() => setEditPay(p)}>
+              <div key={p.id} className="trow money-grid clickable" {...rowProps(() => setEditPay(p))}>
                 <span className="cell-main">
                   <span>
                     <strong>{p.orderId ? orderTitle(data, p.orderId) : clientName(data, p.clientId) === '-' ? 'Payment' : clientName(data, p.clientId)}</strong>
@@ -118,11 +120,13 @@ export function Money({ go, initialId, initialTab }: { go: Go; initialId?: strin
           </div>
         )
       ) : expenses.length === 0 ? (
-        <Empty>No expenses in this period. Add fees, data, transport and other costs to see your real profit.</Empty>
+        <Empty icon="expense" title="No expenses in this period" action={<button className="primary" onClick={() => setEditExp('new')}><Icon name="plus" size={18} /> Add expense</button>}>
+          Add fees, data, transport and other costs to see your real profit.
+        </Empty>
       ) : (
         <div className="table-card">
           {expenses.map((e) => (
-            <div key={e.id} className="trow money-grid clickable" onClick={() => setEditExp(e)}>
+            <div key={e.id} className="trow money-grid clickable" {...rowProps(() => setEditExp(e))}>
               <span className="cell-main">
                 <span>
                   <strong>{e.notes || e.category || 'Expense'}</strong>

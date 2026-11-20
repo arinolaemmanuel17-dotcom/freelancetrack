@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../store'
-import { Badge, Empty } from '../components/ui'
+import { Badge, Empty, rowProps } from '../components/ui'
 import { ClientForm, OrderForm, PaymentForm } from '../components/Forms'
 import { Icon } from '../components/Icon'
 import { FilesCard } from '../components/Files'
@@ -37,7 +37,7 @@ export function Clients({ go, initialId }: { go: Go; initialId?: string | null }
           <h1>Clients</h1>
           <p className="muted small">{data.clients.length} client(s)</p>
         </div>
-        <button className="primary" onClick={() => setAdding(true)}>
+        <button className="primary desk-only" onClick={() => setAdding(true)}>
           <Icon name="plus" size={18} /> New client
         </button>
       </div>
@@ -52,7 +52,23 @@ export function Clients({ go, initialId }: { go: Go; initialId?: string | null }
       </div>
 
       {rows.length === 0 ? (
-        <Empty>{data.clients.length === 0 ? 'No clients yet. Add your first client to get started.' : 'No clients match that filter.'}</Empty>
+        data.clients.length === 0 ? (
+          <Empty
+            icon="clients"
+            title="No clients yet"
+            action={
+              <button className="primary" onClick={() => setAdding(true)}>
+                <Icon name="plus" size={18} /> Add your first client
+              </button>
+            }
+          >
+            Add the people you work for, then attach orders and payments to them.
+          </Empty>
+        ) : (
+          <Empty icon="search" title="No matches">
+            No client matches that filter.
+          </Empty>
+        )
       ) : (
         <div className="table-card">
           <div className="trow thead clients-grid">
@@ -66,7 +82,7 @@ export function Clients({ go, initialId }: { go: Go; initialId?: string | null }
           {rows.map(({ c, st }) => {
             const gap = c.lastContact ? daysBetween(c.lastContact, today()) : null
             return (
-              <div key={c.id} className="trow clients-grid clickable" onClick={() => go('client', c.id)}>
+              <div key={c.id} className="trow clients-grid clickable" {...rowProps(() => go('client', c.id))}>
                 <span className="cell-main">
                   <span className="avatar" aria-hidden="true">{initials(c.name)}</span>
                   <span>
@@ -188,7 +204,7 @@ export function ClientDetail({ go, id }: { go: Go; id: string }) {
             {orders.map((o) => {
               const bal = orderBalance(data, o)
               return (
-                <li key={o.id} className="clickable" onClick={() => go('order', o.id)}>
+                <li key={o.id} className="clickable" {...rowProps(() => go('order', o.id))}>
                   <span className="grow">
                     <strong>{o.title}</strong>
                     <span className="muted small block">

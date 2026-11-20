@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useStore } from '../store'
-import { MoneyInput } from '../components/ui'
+import { MoneyInput, rowProps } from '../components/ui'
 import { LineChart } from '../components/Chart'
 import { Icon } from '../components/Icon'
 import type { Go } from '../App'
@@ -58,6 +58,12 @@ export function Home({ go }: { go: Go }) {
     .filter((o) => OPEN_STATUSES.includes(o.status) && o.dueDate && daysBetween(now, o.dueDate) <= 7)
     .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))
     .slice(0, 5)
+
+  const nextDue = data.orders
+    .filter((o) => OPEN_STATUSES.includes(o.status) && o.dueDate)
+    .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))[0]
+  const nextD = nextDue ? daysBetween(now, nextDue.dueDate as string) : null
+  const nextWhen = nextD === null ? '' : nextD < 0 ? `${-nextD} day${nextD === -1 ? '' : 's'} overdue` : nextD === 0 ? 'Due today' : nextD === 1 ? 'Due tomorrow' : `Due in ${nextD} days`
 
   const activity: Activity[] = [
     ...data.payments
@@ -178,7 +184,7 @@ export function Home({ go }: { go: Go }) {
           </p>
         </div>
         {!checkedToday && !isEmpty && (
-          <button className="primary" onClick={() => go('daily', 'entry')}>
+          <button className="ghost bordered" onClick={() => go('daily', 'entry')}>
             <Icon name="checkin" size={18} /> Check in
           </button>
         )}
@@ -223,47 +229,71 @@ export function Home({ go }: { go: Go }) {
         </section>
       ) : (
         <>
-          <div className="kpis">
-            <div className="kpi hero">
-              <span className="kpi-label">Money in this month</span>
-              <strong className="kpi-value">{money(inThis)}</strong>
-              <span className="delta">
-                {delta === null ? 'First month with income' : `${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs ${monthLabel(previousMonth(month))}`}
+          <section className="hero-card" aria-label={`${monthName} so far`}>
+            <span className="hero-label">Earned in {monthName}</span>
+            <strong className="hero-value">{money(inThis)}</strong>
+            <span className="hero-delta">
+              {delta === null ? 'First month with income' : `${delta >= 0 ? 'Up' : 'Down'} ${Math.abs(delta)}% on ${monthLabel(previousMonth(month))}`}
+            </span>
+            <dl className="hero-split">
+              <div>
+                <dt>Spent</dt>
+                <dd>{money(outThis)}</dd>
+              </div>
+              <div>
+                <dt>Profit</dt>
+                <dd>{money(inThis - outThis)}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <div className="tiles">
+            <button className="tile" onClick={() => go('orders')}>
+              <span className="tile-label">Owed to you</span>
+              <strong className="tile-value">{money(owed)}</strong>
+              <span className="tile-sub">{owed > 0 ? 'On unfinished work' : 'Nothing outstanding'}</span>
+            </button>
+            <button className="tile" onClick={() => go('orders')}>
+              <span className="tile-label">Open orders</span>
+              <strong className="tile-value">{openOrders}</strong>
+              <span className="tile-sub">{dueSoon.length} due this week</span>
+            </button>
+            <button className="tile tile-next" onClick={() => (nextDue ? go('order', nextDue.id) : go('orders'))}>
+              <span className="tile-label">Next deadline</span>
+              <strong className="tile-value tile-text">{nextDue ? nextDue.title : 'Nothing due'}</strong>
+              <span className={nextD !== null && nextD < 0 ? 'tile-sub bad-text' : nextD !== null && nextD <= 2 ? 'tile-sub warn-text' : 'tile-sub'}>
+                {nextDue ? `${nextWhen} · ${clientName(data, nextDue.clientId)}` : 'No open order has a due date'}
               </span>
-            </div>
-            <div className="kpi">
-              <span className="kpi-label">Profit this month</span>
-              <strong className={inThis - outThis < 0 ? 'kpi-value bad-text' : 'kpi-value'}>{money(inThis - outThis)}</strong>
-              <span className="muted small">after {money(outThis)} costs</span>
-            </div>
-            <div className="kpi clickable" onClick={() => go('orders')}>
-              <span className="kpi-label">Owed to you</span>
-              <strong className="kpi-value">{money(owed)}</strong>
-              <span className="muted small">on unfinished work</span>
-            </div>
-            <div className="kpi clickable" onClick={() => go('orders')}>
-              <span className="kpi-label">Open orders</span>
-              <strong className="kpi-value">{openOrders}</strong>
-              <span className="muted small">{dueSoon.length} due this week</span>
-            </div>
+            </button>
           </div>
 
-          <div className="two-col wide-left">
+          <div className="two-col">
             <section className="card">
               <div className="card-head">
-                <h2>Money in, last 6 months</h2>
-                <button className="link small" onClick={() => go('reports')}>
-                  See statistics
-                </button>
+                <h2>Due this week</h2>
+                <button className="link small" onClick={() => go('orders')}>All orders</button>
               </div>
-              <LineChart
-                title="Money in, last 6 months"
-                labels={months.map((m) => monthLabel(m))}
-                values={months.map((m) => toView(receivedIn(data, m)))}
-                currency={view.currency}
-                height={250}
-                empty="Your income will show here once you record payments."
-              />
+              {dueSoon.length === 0 ? (
+                <p className="muted small">Nothing due in the next 7 days.</p>
+              ) : (
+                <ul className="rows">
+                  {dueSoon.map((o) => {
+                    const d = daysBetween(now, o.dueDate as string)
+                    return (
+                      <li key={o.id} className="clickable" {...rowProps(() => go('order', o.id))}>
+                        <span className="grow">
+                          <strong>{o.title}</strong>
+                          <span className="muted small block">{clientName(data, o.clientId)}</span>
+                        </span>
+                        <StatusPill status={o.status} />
+                        <span className={d < 0 ? 'small bad-text' : d <= 2 ? 'small warn-text' : 'small muted'}>
+                          {d < 0 ? `${-d}d late` : d === 0 ? 'Today' : `In ${d}d`}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </section>
 
             <div className="stack">
@@ -340,33 +370,22 @@ export function Home({ go }: { go: Go }) {
             </div>
           </div>
 
-          <div className="two-col">
+          <div className="two-col wide-left">
             <section className="card">
               <div className="card-head">
-                <h2>Due this week</h2>
-                <button className="link small" onClick={() => go('orders')}>All orders</button>
+                <h2>Money in, last 6 months</h2>
+                <button className="link small" onClick={() => go('reports')}>
+                  See statistics
+                </button>
               </div>
-              {dueSoon.length === 0 ? (
-                <p className="muted small">Nothing due in the next 7 days.</p>
-              ) : (
-                <ul className="rows">
-                  {dueSoon.map((o) => {
-                    const d = daysBetween(now, o.dueDate as string)
-                    return (
-                      <li key={o.id} className="clickable" onClick={() => go('order', o.id)}>
-                        <span className="grow">
-                          <strong>{o.title}</strong>
-                          <span className="muted small block">{clientName(data, o.clientId)}</span>
-                        </span>
-                        <StatusPill status={o.status} />
-                        <span className={d < 0 ? 'small bad-text' : d <= 2 ? 'small warn-text' : 'small muted'}>
-                          {d < 0 ? `${-d}d late` : d === 0 ? 'Today' : `In ${d}d`}
-                        </span>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
+              <LineChart
+                title="Money in, last 6 months"
+                labels={months.map((m) => monthLabel(m))}
+                values={months.map((m) => toView(receivedIn(data, m)))}
+                currency={view.currency}
+                height={250}
+                empty="Your income will show here once you record payments."
+              />
             </section>
 
             <section className="card">
@@ -378,7 +397,7 @@ export function Home({ go }: { go: Go }) {
               ) : (
                 <ul className="rows activity">
                   {activity.map((a, i) => (
-                    <li key={i} className="clickable" onClick={a.go}>
+                    <li key={i} className="clickable" {...rowProps(() => a.go())}>
                       <span className={`act-icon ${a.tone ?? ''}`} aria-hidden="true">
                         <Icon name={a.icon} size={16} />
                       </span>
